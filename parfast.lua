@@ -25,6 +25,7 @@ Reserved = {
 	LT = enum(),
 	GT = enum(),
 	DUP = enum(),
+	SWAP = enum()
 }
 
 local strreserved = {
@@ -34,6 +35,7 @@ local strreserved = {
 	["if"] = Reserved.IF,
 	["end"] = Reserved.END,
 	["dup"] = Reserved.DUP,
+	["swp"] = Reserved.SWAP
 }
 
 local function push(val, index)
@@ -68,6 +70,9 @@ local function gt(index)
 end
 local function dup(index)
 	return { Reserved.DUP, index}
+end
+local function swp(index)
+	return { Reserved.SWAP, index}
 end
 
 local function lexl(line)
@@ -171,7 +176,6 @@ local function lexl(line)
 	return tokens
 end
 
--- token: {type = %d, value = %a, col = %d, line = %d}
 function parse(tokens)
 	local program = {}
 	local stack = {}
@@ -214,6 +218,9 @@ function parse(tokens)
 		elseif tokens[1].value == "dup" then
 			shift()
 			table.insert(program, dup(pc))
+		elseif tokens[1].value == "swp" then
+			shift()
+			table.insert(program, swp(pc))
 		else
 			local val = shift().value
 			table.insert(program, push(val, pc))
@@ -256,6 +263,8 @@ function compile(ir)
 			output:write("\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.GT then
 			output:write("\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
+		elseif op[1] == Reserved.SWAP then
+			output:write("\tpop rax\n\tpop rbx\n\tpush rax\n\tpush rbx\n")
 		else
 			print("Warn: unknown operands will be ignored.")
 		end
@@ -263,26 +272,6 @@ function compile(ir)
 
 	output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall")
 	output:close()
-end
-
-function printr(t)
-	local function sub_print(t, indent)
-		if type(t) == "table" then
-			for i, v in pairs(t) do
-				if type(v) == "table" then
-					print(string.rep(" ", indent) .. i .. ": {")
-					sub_print(v, indent + 1)
-					print(string.rep(" ", indent - 1) .. "}")
-				else
-					print(string.rep(" ", indent) .. i .. ": " .. tostring(v))
-				end
-			end
-		else
-			print(tostring(t))
-		end
-	end
-
-	sub_print(t, 0)
 end
 
 function main()
