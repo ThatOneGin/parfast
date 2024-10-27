@@ -25,7 +25,9 @@ Reserved = {
 	LT = enum(),
 	GT = enum(),
 	DUP = enum(),
-	SWAP = enum()
+	SWAP = enum(),
+	WHILE = enum(),
+	DO = enum()
 }
 
 local strreserved = {
@@ -35,44 +37,52 @@ local strreserved = {
 	["if"] = Reserved.IF,
 	["end"] = Reserved.END,
 	["dup"] = Reserved.DUP,
-	["swap"] = Reserved.SWAP
+	["swap"] = Reserved.SWAP,
+	["while"] = Reserved.WHILE,
+	["do"] = Reserved.DO
 }
 
-local function push(val, index)
-	return { Reserved.PUSH, index, val}
+local function push(val)
+	return { Reserved.PUSH, val }
 end
-local function puts(index)
-	return { Reserved.PUTS, index}
+local function puts()
+	return { Reserved.PUTS }
 end
-local function add(index)
-	return { Reserved.ADD, index}
+local function add()
+	return { Reserved.ADD }
 end
-local function sub(index)
-	return { Reserved.SUB, index}
+local function sub()
+	return { Reserved.SUB }
 end
-local function _if(index, endref)
-	return { Reserved.IF, endref, index }
+local function _if()
+	return { Reserved.IF }
 end
-local function _end(index)
-	return { Reserved.END, index}
+local function _end()
+	return { Reserved.END }
 end
-local function equ(index)
-	return { Reserved.EQU, index}
+local function equ()
+	return { Reserved.EQU }
 end
-local function neq(index)
-	return { Reserved.NEQ, index}
+local function neq()
+	return { Reserved.NEQ }
 end
-local function lt(index)
-	return { Reserved.LT, index}
+local function lt()
+	return { Reserved.LT }
 end
-local function gt(index)
-	return { Reserved.GT, index}
+local function gt()
+	return { Reserved.GT }
 end
-local function dup(index)
-	return { Reserved.DUP, index}
+local function dup()
+	return { Reserved.DUP }
 end
-local function swp(index)
-	return { Reserved.SWAP, index}
+local function swp()
+	return { Reserved.SWAP }
+end
+local function _while()
+	return { Reserved.WHILE }
+end
+local function _do()
+	return { Reserved.DO }
 end
 
 local function lexl(line)
@@ -178,54 +188,86 @@ end
 
 function parse(tokens)
 	local program = {}
-	local stack = {}
 
 	local function shift()
 		return table.remove(tokens, 1)
 	end
 
-	local pc = 1
 	while #tokens > 0 do
 		if tokens[1].value == "puts" then
 			shift()
-			table.insert(program, puts(pc))
+			table.insert(program, puts())
 		elseif tokens[1].value == "+" then
 			shift()
-			table.insert(program, add(pc))
+			table.insert(program, add())
 		elseif tokens[1].value == "-" then
 			shift()
-			table.insert(program, sub(pc))
+			table.insert(program, sub())
 		elseif tokens[1].value == "if" then
 			shift()
 
-			table.insert(stack, pc)
-			table.insert(program, _if(pc))
+			table.insert(program, _if())
 		elseif tokens[1].value == "end" then
 			shift()
-			table.insert(program, _end(table.remove(stack)))
+			table.insert(program, _end())
 		elseif tokens[1].value == "==" then
 			shift()
-			table.insert(program, equ(pc))
+			table.insert(program, equ())
 		elseif tokens[1].value == "!=" then
 			shift()
-			table.insert(program, neq(pc))
+			table.insert(program, neq())
 		elseif tokens[1].value == ">" then
 			shift()
-			table.insert(program, gt(pc))
+			table.insert(program, gt())
 		elseif tokens[1].value == "<" then
 			shift()
-			table.insert(program, lt(pc))
+			table.insert(program, lt())
 		elseif tokens[1].value == "dup" then
 			shift()
-			table.insert(program, dup(pc))
+			table.insert(program, dup())
 		elseif tokens[1].value == "swap" then
 			shift()
-			table.insert(program, swp(pc))
+			table.insert(program, swp())
+		elseif tokens[1].value == "while" then
+			shift()
+			table.insert(program, _while())
+		elseif tokens[1].value == "do" then
+			shift()
+			table.insert(program, _do())
 		else
 			local val = shift().value
-			table.insert(program, push(val, pc))
+			table.insert(program, push(val))
 		end
-		pc = pc + 1
+	end
+
+	return program
+end
+
+local function get_references(program)
+	ref_stack = {}
+
+	for i = 1, #program do
+		local opr = program[i]
+
+		if opr[1] == Reserved.IF then
+			table.insert(ref_stack, i)
+		elseif opr[1] == Reserved.END then
+			local end_block = table.remove(ref_stack)
+
+			if program[end_block][1] == Reserved.IF then
+				program[end_block] = { program[end_block][1], i + 1}
+				program[i] = { Reserved.END, i }
+			elseif program[end_block][1] == Reserved.DO then
+				program[i] = { Reserved.END, program[end_block][2] }
+				program[end_block] = { Reserved.DO, i + 1}
+			end
+		elseif opr[1] == Reserved.WHILE then
+			table.insert(ref_stack, i)
+		elseif opr[1] == Reserved.DO then
+			local while_ref = table.remove(ref_stack)
+			program[i] = { Reserved.DO, while_ref }
+			table.insert(ref_stack, i)
+		end
 	end
 
 	return program
@@ -237,24 +279,30 @@ function compile(ir)
 		return nil
 	end
 
-	output:write("puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
-	output:write(".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
+	output:write(
+		"puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
+	output:write(
+		".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
 	output:write("section .text\n\tglobal _start\n\n_start:\n")
 
 	for i, op in pairs(ir) do
+		output:write(string.format("op_%d:\n", i))
+
 		if op[1] == Reserved.PUSH then
-			output:write(string.format("\tpush %d\n", op[3]))
+			output:write(string.format("\tpush %d\n", op[2]))
 		elseif op[1] == Reserved.ADD then
 			output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")
 		elseif op[1] == Reserved.SUB then
-			output:write("\tpop rax\n\tpop rbx\n\tsub rax, rbx\n\tpush rax\n")
+			output:write("\tpop rax\n\tpop rbx\n\tsub rbx, rax\n\tpush rbx\n")
 		elseif op[1] == Reserved.PUTS then
 			output:write("\tpop rdi\n\tcall puts\n")
 		elseif op[1] == Reserved.IF then
-			output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz end_%d\n", op[3]))
+			output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
 		elseif op[1] == Reserved.END then
-			output:write(string.format("end_%d:\n", op[2]))
+			if i + 1 ~= op[2] then
+				output:write(string.format("\tjmp op_%d\n", op[2]))
+			end
 		elseif op[1] == Reserved.DUP then
 			output:write("\tpop rax\n\tpush rax\n\tpush rax\n")
 		elseif op[1] == Reserved.EQU then
@@ -263,13 +311,20 @@ function compile(ir)
 			output:write("\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.GT then
 			output:write("\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
+		elseif op[1] == Reserved.LT then
+			output:write("\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.SWAP then
 			output:write("\tpop rax\n\tpop rbx\n\tpush rax\n\tpush rbx\n")
+		elseif op[1] == Reserved.WHILE then
+			output:write("\t; while\n")
+		elseif op[1] == Reserved.DO then
+			output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
 		else
 			print("Warn: unknown operands will be ignored.")
 		end
 	end
 
+	output:write(string.format("op_%d:\n", #ir+1))
 	output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall")
 	output:close()
 end
@@ -282,7 +337,11 @@ function main()
 	end
 	local tokens = lexl(input:read("a"))
 	local ir = parse(tokens)
-	compile(ir)
+	compile(get_references(ir))
+	os.execute("nasm -f elf64 a.asm")
+	os.execute("ld -o a.out a.o")
+
+	print("commands: \n\t[nasm -f elf64 a.asm]\n\t[ld -o a.out a.o]")
 end
 
 main()
