@@ -35,7 +35,7 @@ local strreserved = {
 	["if"] = Reserved.IF,
 	["end"] = Reserved.END,
 	["dup"] = Reserved.DUP,
-	["swp"] = Reserved.SWAP
+	["swap"] = Reserved.SWAP
 }
 
 local function push(val, index)
@@ -218,7 +218,7 @@ function parse(tokens)
 		elseif tokens[1].value == "dup" then
 			shift()
 			table.insert(program, dup(pc))
-		elseif tokens[1].value == "swp" then
+		elseif tokens[1].value == "swap" then
 			shift()
 			table.insert(program, swp(pc))
 		else
