@@ -1,0 +1,7 @@
+32 34 + 65 > if
+  1 puts
+end
+
+32 34 + 65 < if
+  1 puts
+end

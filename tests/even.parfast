@@ -1,0 +1,7 @@
+10 // push 10 to the stack
+while dup 0 > do // while 10 > 0
+  dup dup + puts // (x + x) print
+
+  1 - // decrement by one
+end
+// this actually prints even numbersE

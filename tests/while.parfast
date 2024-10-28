@@ -1,0 +1,7 @@
+10 // push 10 to the stack
+while dup 0 > do // while 10 > 0
+  dup puts
+
+  1 - // decrement by one
+end
+// count from 10 to 1

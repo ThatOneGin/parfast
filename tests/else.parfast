@@ -1,0 +1,5 @@
+10 12 > if
+  10 puts
+else
+  12 puts
+end

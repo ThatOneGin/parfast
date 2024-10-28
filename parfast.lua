@@ -27,7 +27,8 @@ Reserved = {
 	DUP = enum(),
 	SWAP = enum(),
 	WHILE = enum(),
-	DO = enum()
+	DO = enum(),
+	ELSE = enum()
 }
 
 local strreserved = {
@@ -39,7 +40,8 @@ local strreserved = {
 	["dup"] = Reserved.DUP,
 	["swap"] = Reserved.SWAP,
 	["while"] = Reserved.WHILE,
-	["do"] = Reserved.DO
+	["do"] = Reserved.DO,
+	["else"] = Reserved.ELSE
 }
 
 local function push(val)
@@ -83,6 +85,9 @@ local function _while()
 end
 local function _do()
 	return { Reserved.DO }
+end
+local function _else()
+	return {Reserved.ELSE}
 end
 
 local function lexl(line)
@@ -158,6 +163,9 @@ local function lexl(line)
 		elseif src[1] == ">" then
 			table.insert(tokens, { type = Tokentype.Operator, value = ">", col = i, line = ln })
 			shift()
+		elseif src[1] == "<" then
+			table.insert(tokens, { type = Tokentype.Operator, value = "<", col = i, line = ln })
+			shift()
 		elseif src[1] == "!" then
 			if src[2] == "=" then
 				table.insert(tokens, { type = Tokentype.Operator, value = "!=", col = i, line = ln })
@@ -195,46 +203,60 @@ function parse(tokens)
 
 	while #tokens > 0 do
 		if tokens[1].value == "puts" then
+			assert(#program > 0, string.format("Cannot write as the stack may be empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, puts())
 		elseif tokens[1].value == "+" then
+			assert(#program > 1, string.format("Cannot make arithmetic(+) as the stack may be empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, add())
 		elseif tokens[1].value == "-" then
+			assert(#program > 1, string.format("Cannot make arithmetic(-) as the stack may be empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, sub())
 		elseif tokens[1].value == "if" then
+			assert(#program > 2, string.format("Expected condition before `if` initial block. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
-
 			table.insert(program, _if())
 		elseif tokens[1].value == "end" then
 			shift()
 			table.insert(program, _end())
 		elseif tokens[1].value == "==" then
+			assert(#program > 1, string.format("Cannot make boolean operation(==) as the stack is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, equ())
 		elseif tokens[1].value == "!=" then
+			assert(#program > 1, string.format("Cannot make boolean operation(!=) as the stack is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, neq())
 		elseif tokens[1].value == ">" then
+			assert(#program > 1, string.format("Cannot make boolean operation(>) as the stack is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, gt())
 		elseif tokens[1].value == "<" then
+			assert(#program > 1, string.format("Cannot make boolean operation(<) as the stack is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, lt())
 		elseif tokens[1].value == "dup" then
+			assert(#program > 0, string.format("Cannot duplicate the top of the stack as it is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, dup())
 		elseif tokens[1].value == "swap" then
+			assert(#program > 1, string.format("Cannot swap the top of the stack as it is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, swp())
 		elseif tokens[1].value == "while" then
 			shift()
 			table.insert(program, _while())
 		elseif tokens[1].value == "do" then
+			assert(#program > 2, string.format("Expected condition before `do` initial block. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, _do())
+		elseif tokens[1].value == "else" then
+			shift()
+			table.insert(program, _else())
 		else
+			assert(#tokens > 1, string.format("Warn: the result of the push operation at eof will be considered as dead code.\n\tAt location %d:%d", tokens[1].line, tokens[1].col))
 			local val = shift().value
 			table.insert(program, push(val))
 		end
@@ -254,14 +276,23 @@ local function get_references(program)
 		elseif opr[1] == Reserved.END then
 			local end_block = table.remove(ref_stack)
 
-			if program[end_block][1] == Reserved.IF then
-				program[end_block] = { program[end_block][1], i + 1}
-				program[i] = { Reserved.END, i }
+			if program[end_block][1] == Reserved.IF or program[end_block][1] == Reserved.ELSE then
+				program[end_block] = { program[end_block][1], i }
+				program[i] = { Reserved.END, i + 1 }
 			elseif program[end_block][1] == Reserved.DO then
 				program[i] = { Reserved.END, program[end_block][2] }
-				program[end_block] = { Reserved.DO, i + 1}
+				program[end_block] = { Reserved.DO, i + 1 }
 			end
 		elseif opr[1] == Reserved.WHILE then
+			table.insert(ref_stack, i)
+		elseif opr[1] == Reserved.ELSE then
+			local if_location = table.remove(ref_stack)
+
+			if program[if_location][1] ~= Reserved.IF then
+				print("Else is not being used in an if statement.")
+				os.exit(1)
+			end
+			program[if_location] = {Reserved.IF, i + 1}
 			table.insert(ref_stack, i)
 		elseif opr[1] == Reserved.DO then
 			local while_ref = table.remove(ref_stack)
@@ -273,8 +304,8 @@ local function get_references(program)
 	return program
 end
 
-function compile(ir)
-	local output = io.open("a.asm", "w+")
+function compile(ir, outname)
+	local output = io.open(outname..".asm", "w+")
 	if not output or output == nil then
 		return nil
 	end
@@ -300,7 +331,7 @@ function compile(ir)
 		elseif op[1] == Reserved.IF then
 			output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
 		elseif op[1] == Reserved.END then
-			if i + 1 ~= op[2] then
+			if i + 1 ~= op[2] or i ~= op[2] then
 				output:write(string.format("\tjmp op_%d\n", op[2]))
 			end
 		elseif op[1] == Reserved.DUP then
@@ -319,14 +350,21 @@ function compile(ir)
 			output:write("\t; while\n")
 		elseif op[1] == Reserved.DO then
 			output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
+		elseif op[1] == Reserved.ELSE then
+			output:write(string.format("\tjmp op_%d\n", op[2]))
 		else
-			print("Warn: unknown operands will be ignored.")
+       print("\27[31;4mError\27[0m:\n\tOperand not recognized")
+       os.exit(1)
 		end
 	end
 
-	output:write(string.format("op_%d:\n", #ir+1))
+	output:write(string.format("op_%d:\n", #ir + 1))
 	output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall")
 	output:close()
+end
+
+local function getfilename(filepath)
+  return filepath:sub(1, -9)
 end
 
 function main()
@@ -337,9 +375,10 @@ function main()
 	end
 	local tokens = lexl(input:read("a"))
 	local ir = parse(tokens)
-	compile(get_references(ir))
-	os.execute("nasm -f elf64 a.asm")
-	os.execute("ld -o a.out a.o")
+  local outname = getfilename(arg[1])
+	compile(get_references(ir), outname)
+  os.execute("nasm -f elf64 "..outname..".asm")
+	os.execute(string.format("ld -o %s %s", outname, outname..".o"))
 
 	print("commands: \n\t[nasm -f elf64 a.asm]\n\t[ld -o a.out a.o]")
 end
