@@ -32,7 +32,8 @@ Reserved = {
 	MBUF = enum(),
 	LOAD = enum(),
 	STORE = enum(),
-	DROP = enum()
+	DROP = enum(),
+	MACRO = enum()
 }
 
 -- probably will be more than this is the future.
@@ -52,7 +53,8 @@ local strreserved = {
 	["mbuf"] = Reserved.MBUF,
 	["st"] = Reserved.STORE,
 	["ld"] = Reserved.LOAD,
-	["drop"] = Reserved.DROP
+	["drop"] = Reserved.DROP,
+	["macro"] = Reserved.MACRO
 }
 
 local function push(val)
@@ -220,6 +222,7 @@ end
 
 function parse(tokens)
 	local program = {}
+	local macros = {}
 
 	local function shift()
 		return table.remove(tokens, 1)
@@ -227,71 +230,42 @@ function parse(tokens)
 
 	while #tokens > 0 do
 		if tokens[1].value == "puts" then
-			assert(#program > 0,
-				string.format("Cannot write as the stack may be empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, puts())
 		elseif tokens[1].value == "+" then
-			assert(#program > 1,
-				string.format("Cannot make arithmetic(+) as the stack may be empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, add())
 		elseif tokens[1].value == "-" then
-			assert(#program > 1,
-				string.format("Cannot make arithmetic(-) as the stack may be empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, sub())
 		elseif tokens[1].value == "if" then
-			assert(#program > 2,
-				string.format("Expected condition before `if` initial block. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, _if())
 		elseif tokens[1].value == "end" then
 			shift()
 			table.insert(program, _end())
 		elseif tokens[1].value == "==" then
-			assert(#program > 1,
-				string.format("Cannot make boolean operation(==) as the stack is empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, equ())
 		elseif tokens[1].value == "!=" then
-			assert(#program > 1,
-				string.format("Cannot make boolean operation(!=) as the stack is empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, neq())
 		elseif tokens[1].value == ">" then
-			assert(#program > 1,
-				string.format("Cannot make boolean operation(>) as the stack is empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, gt())
 		elseif tokens[1].value == "<" then
-			assert(#program > 1,
-				string.format("Cannot make boolean operation(<) as the stack is empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, lt())
 		elseif tokens[1].value == "dup" then
-			assert(#program > 0,
-				string.format("Cannot duplicate the top of the stack as it is empty. At %d:%d", tokens[1].line,
-					tokens[1].col))
 			shift()
 			table.insert(program, dup())
 		elseif tokens[1].value == "swap" then
-			assert(#program > 1,
-				string.format("Cannot swap the top of the stack as it is empty. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, swp())
 		elseif tokens[1].value == "while" then
 			shift()
 			table.insert(program, _while())
 		elseif tokens[1].value == "do" then
-			assert(#program > 2,
-				string.format("Expected condition before `do` initial block. At %d:%d", tokens[1].line, tokens[1].col))
 			shift()
 			table.insert(program, _do())
 		elseif tokens[1].value == "else" then
@@ -309,6 +283,29 @@ function parse(tokens)
 		elseif tokens[1].value == "drop" then
 			shift()
 			table.insert(program, drop())
+		elseif tokens[1].value == "macro" then
+			-- TODO: security mechanism for recursion and stacked macros
+			shift()
+			local name = shift().value
+			local macro = {
+				name = name,
+				tokens = {}
+			}
+
+			while tokens[1].value ~= "end" and #tokens > 1 do
+				table.insert(macro.tokens, shift())
+			end
+			shift()
+			macros[macro.name] = macro.tokens
+		elseif tokens[1].type == Tokentype.Ident then
+			local name = shift().value
+			assert(macros[name] ~= nil, "Cannot find macro or keyword named `" .. name .. "`")
+
+			local macrovalue = parse(macros[name])
+
+			for i = 1, #macrovalue do
+				table.insert(program, macrovalue[i])
+			end
 		else
 			assert(#tokens > 1,
 				string.format(
@@ -396,16 +393,16 @@ function compile(ir, outname)
 			output:write("\tpop rax\n\tpush rax\n\tpush rax\n")
 		elseif op[1] == Reserved.EQU then
 			output:write(
-			"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
+				"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.NEQ then
 			output:write(
-			"\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
+				"\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.GT then
 			output:write(
-			"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
+				"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.LT then
 			output:write(
-			"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovl rcx, rdx\n\tpush rcx\n")
+				"\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovl rcx, rdx\n\tpush rcx\n")
 		elseif op[1] == Reserved.SWAP then
 			output:write("\tpop rax\n\tpop rbx\n\tpush rax\n\tpush rbx\n")
 		elseif op[1] == Reserved.WHILE then
@@ -423,7 +420,7 @@ function compile(ir, outname)
 		elseif op[1] == Reserved.DROP then
 			output:write("\tpop rax\n")
 		else
-			print("\27[31;4mError\27[0m:\n\tOperand not recognized ")
+			print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.")
 			os.exit(1)
 		end
 	end
