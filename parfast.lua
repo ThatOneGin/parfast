@@ -10,11 +10,13 @@ Tokentype = {
 	Number = enum(true),
 	Ident = enum(),
 	Word = enum(),
-	Operator = enum()
+	Operator = enum(),
+	String = enum
 }
 
 Reserved = {
-	PUSH = enum(true),
+	PUSH_INT = enum(true),
+	PUSH_STR = enum(),
 	PUTS = enum(),
 	ADD = enum(),
 	SUB = enum(),
@@ -33,7 +35,8 @@ Reserved = {
 	LOAD = enum(),
 	STORE = enum(),
 	DROP = enum(),
-	MACRO = enum()
+	MACRO = enum(),
+	SYSWRITE = enum()
 }
 
 -- probably will be more than this is the future.
@@ -54,11 +57,15 @@ local strreserved = {
 	["st"] = Reserved.STORE,
 	["ld"] = Reserved.LOAD,
 	["drop"] = Reserved.DROP,
-	["macro"] = Reserved.MACRO
+	["macro"] = Reserved.MACRO,
+	["syswrite"] = Reserved.SYSWRITE
 }
 
-local function push(val)
-	return { Reserved.PUSH, val }
+local function pushint(val)
+	return { Reserved.PUSH_INT, val }
+end
+local function pushstr(val)
+	return { Reserved.PUSH_STR, val}
 end
 local function puts()
 	return { Reserved.PUTS }
@@ -113,6 +120,9 @@ local function mbuf()
 end
 local function drop()
 	return { Reserved.DROP }
+end
+local function syswrite()
+	return { Reserved.SYSWRITE }
 end
 
 local function lexl(line)
@@ -214,15 +224,28 @@ local function lexl(line)
 		elseif src[1] == "-" then
 			shift()
 			table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
+		elseif src[1] == "\"" then
+			shift() -- opening "
+			local str = ""
+
+			while src[1] ~= "\"" and #src > 0 do
+				str = str .. src[1]
+				shift()
+			end
+			shift() -- closing "
+
+			table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln})
 		end
 	end
 
 	return tokens
 end
 
+local macros = {}
+
 function parse(tokens)
 	local program = {}
-	local macros = {}
+
 
 	local function shift()
 		return table.remove(tokens, 1)
@@ -297,6 +320,9 @@ function parse(tokens)
 			end
 			shift()
 			macros[macro.name] = macro.tokens
+		elseif tokens[1].value == "syswrite" then
+			shift()
+			table.insert(program, syswrite())
 		elseif tokens[1].type == Tokentype.Ident then
 			local name = shift().value
 			assert(macros[name] ~= nil, "Cannot find macro or keyword named `" .. name .. "`")
@@ -306,18 +332,26 @@ function parse(tokens)
 			for i = 1, #macrovalue do
 				table.insert(program, macrovalue[i])
 			end
-		else
+		elseif tokens[1].type == Tokentype.Number then
 			assert(#tokens > 1,
 				string.format(
 					"Warn: the result of the push operation at eof will be considered as dead code.\n\tAt location %d:%d",
 					tokens[1].line, tokens[1].col))
 			local val = shift().value
-			table.insert(program, push(val))
+			table.insert(program, pushint(val))
+		elseif tokens[1].type == Tokentype.String then
+			assert(#tokens > 1,
+				string.format(
+					"Warn: the result of the push operation at eof will be considered as dead code.\n\tAt location %d:%d",
+					tokens[1].line, tokens[1].col))
+			local val = shift().value
+			table.insert(program, pushstr(val))
 		end
 	end
 
 	return program
 end
+
 
 local function get_references(program)
 	ref_stack = {}
@@ -358,6 +392,15 @@ local function get_references(program)
 	return program
 end
 
+local function hex(str)
+  local hex = {}
+  for i = 1, #str do
+      local byte = string.byte(str, i)
+      table.insert(hex, "0x"..string.format("%02X", byte))
+  end
+  return table.concat(hex, ",")
+end
+
 function compile(ir, outname)
 	local output = io.open(outname .. ".asm", "w+")
 	if not output or output == nil then
@@ -372,11 +415,15 @@ function compile(ir, outname)
 	output:write("section .bss\n\tmbuf: resb " .. max_buffer_cap .. "\n")
 	output:write("section .text\n\tglobal _start\n\n_start:\n")
 
+	local strings = {}
 	for i, op in pairs(ir) do
 		output:write(string.format("op_%d:\n", i))
 
-		if op[1] == Reserved.PUSH then
+		if op[1] == Reserved.PUSH_INT then
 			output:write(string.format("\tpush %d\n", op[2]))
+		elseif op[1] == Reserved.PUSH_STR then
+			table.insert(strings, op[2])
+			output:write(string.format("\tpush %d\n\tpush string_%d\n", string.len(op[2]), #strings))
 		elseif op[1] == Reserved.ADD then
 			output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")
 		elseif op[1] == Reserved.SUB then
@@ -419,6 +466,8 @@ function compile(ir, outname)
 			output:write("\tpop rbx\n\tpop rax\n\tmov [rax], bl\n")
 		elseif op[1] == Reserved.DROP then
 			output:write("\tpop rax\n")
+		elseif op[1] == Reserved.SYSWRITE then
+			output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
 		else
 			print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.")
 			os.exit(1)
@@ -426,7 +475,12 @@ function compile(ir, outname)
 	end
 
 	output:write(string.format("op_%d:\n", #ir + 1))
-	output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall")
+	output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
+	--unfortunately i need to write data section here because of strings
+	output:write("section .data\n")
+	for i, str in pairs(strings) do
+		output:write(string.format("string_%d: db %s\n", i, hex(str)))
+	end
 	output:close()
 end
 

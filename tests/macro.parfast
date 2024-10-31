@@ -1,0 +1,9 @@
+macro hello
+  10 10 +
+end
+
+macro add
+  hello 3 + puts // connecting 2 macros
+end
+
+add
