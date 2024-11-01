@@ -237,6 +237,17 @@ local function lexl(line)
 			shift() -- closing "
 
 			table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln })
+		elseif src[1] == "'" then
+			shift() -- opening "
+			local str = ""
+
+			while src[1] ~= "'" and #src > 0 do
+				str = str .. src[1]
+				shift()
+			end
+			shift() -- closing "
+
+			table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln })
 		end
 	end
 
