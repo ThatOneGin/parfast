@@ -7,65 +7,67 @@ function enum(reset)
 end
 
 Tokentype = {
-	Number = enum(true),
-	Ident = enum(),
-	Word = enum(),
+	Number   = enum(true),
+	Ident    = enum(),
+	Word     = enum(),
 	Operator = enum(),
-	String = enum
+	String   = enum
 }
 
 Reserved = {
 	PUSH_INT = enum(true),
 	PUSH_STR = enum(),
-	PUTS = enum(),
-	ADD = enum(),
-	SUB = enum(),
-	IF = enum(),
-	END = enum(),
-	EQU = enum(),
-	NEQ = enum(),
-	LT = enum(),
-	GT = enum(),
-	DUP = enum(),
-	SWAP = enum(),
-	WHILE = enum(),
-	DO = enum(),
-	ELSE = enum(),
-	MBUF = enum(),
-	LOAD = enum(),
-	STORE = enum(),
-	DROP = enum(),
-	MACRO = enum(),
-	SYSWRITE = enum()
+	PUTS     = enum(),
+	ADD      = enum(),
+	SUB      = enum(),
+	IF       = enum(),
+	END      = enum(),
+	EQU      = enum(),
+	NEQ      = enum(),
+	LT       = enum(),
+	GT       = enum(),
+	DUP      = enum(),
+	SWAP     = enum(),
+	WHILE    = enum(),
+	DO       = enum(),
+	ELSE     = enum(),
+	MBUF     = enum(),
+	LOAD     = enum(),
+	STORE    = enum(),
+	DROP     = enum(),
+	MACRO    = enum(),
+	SYSWRITE = enum(),
+	INCLUDE  = enum()
 }
 
 -- probably will be more than this is the future.
 local max_buffer_cap = 1000
 
 local strreserved = {
-	["puts"] = Reserved.PUTS,
-	["+"] = Reserved.ADD,
-	["-"] = Reserved.SUB,
-	["if"] = Reserved.IF,
-	["end"] = Reserved.END,
-	["dup"] = Reserved.DUP,
-	["swap"] = Reserved.SWAP,
-	["while"] = Reserved.WHILE,
-	["do"] = Reserved.DO,
-	["else"] = Reserved.ELSE,
-	["mbuf"] = Reserved.MBUF,
-	["st"] = Reserved.STORE,
-	["ld"] = Reserved.LOAD,
-	["drop"] = Reserved.DROP,
-	["macro"] = Reserved.MACRO,
-	["syswrite"] = Reserved.SYSWRITE
+	["puts"]     = Reserved.PUTS,
+	["+"]        = Reserved.ADD,
+	["-"]        = Reserved.SUB,
+	["if"]       = Reserved.IF,
+	["end"]      = Reserved.END,
+	["dup"]      = Reserved.DUP,
+	["swap"]     = Reserved.SWAP,
+	["while"]    = Reserved.WHILE,
+	["do"]       = Reserved.DO,
+	["else"]     = Reserved.ELSE,
+	["mbuf"]     = Reserved.MBUF,
+	["st"]       = Reserved.STORE,
+	["ld"]       = Reserved.LOAD,
+	["drop"]     = Reserved.DROP,
+	["macro"]    = Reserved.MACRO,
+	["syswrite"] = Reserved.SYSWRITE,
+	["include"]  = Reserved.INCLUDE,
 }
 
 local function pushint(val)
 	return { Reserved.PUSH_INT, val }
 end
 local function pushstr(val)
-	return { Reserved.PUSH_STR, val}
+	return { Reserved.PUSH_STR, val }
 end
 local function puts()
 	return { Reserved.PUTS }
@@ -234,7 +236,7 @@ local function lexl(line)
 			end
 			shift() -- closing "
 
-			table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln})
+			table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln })
 		end
 	end
 
@@ -242,7 +244,7 @@ local function lexl(line)
 end
 
 local macros = {}
-
+local included_paths = {}
 function parse(tokens)
 	local program = {}
 
@@ -333,25 +335,34 @@ function parse(tokens)
 				table.insert(program, macrovalue[i])
 			end
 		elseif tokens[1].type == Tokentype.Number then
-			assert(#tokens > 1,
-				string.format(
-					"Warn: the result of the push operation at eof will be considered as dead code.\n\tAt location %d:%d",
-					tokens[1].line, tokens[1].col))
 			local val = shift().value
 			table.insert(program, pushint(val))
 		elseif tokens[1].type == Tokentype.String then
-			assert(#tokens > 1,
-				string.format(
-					"Warn: the result of the push operation at eof will be considered as dead code.\n\tAt location %d:%d",
-					tokens[1].line, tokens[1].col))
 			local val = shift().value
 			table.insert(program, pushstr(val))
+		elseif tokens[1].value == "include" then
+			-- todo: security mechanism for recursion
+			shift()
+			local path = shift()
+			if path.type ~= Tokentype.String then
+				print("Expected string for filepath, got", path.type)
+				os.exit(1)
+			end
+			local file = io.open(path.value, "r")
+			if not file or file == nil then
+				print("Cannot include file, exiting")
+				os.exit(1)
+			end
+			local i_tokens = parse(lexl(file:read("a")))
+			for i = 1, #i_tokens do
+				table.insert(program, i_tokens[i])
+			end
+			file:close()
 		end
 	end
 
 	return program
 end
-
 
 local function get_references(program)
 	ref_stack = {}
@@ -393,12 +404,12 @@ local function get_references(program)
 end
 
 local function hex(str)
-  local hex = {}
-  for i = 1, #str do
-      local byte = string.byte(str, i)
-      table.insert(hex, "0x"..string.format("%02X", byte))
-  end
-  return table.concat(hex, ",")
+	local hex = {}
+	for i = 1, #str do
+		local byte = string.byte(str, i)
+		table.insert(hex, "0x" .. string.format("%02X", byte))
+	end
+	return table.concat(hex, ",")
 end
 
 function compile(ir, outname)

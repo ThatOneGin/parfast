@@ -9,7 +9,7 @@ A stack-oriented, reverse polish notated, compiled and forth-like language that 
 
 # Dependencies
 
-### Nasm (dependency because its tested only with nasm)
+- Nasm (dependency because its tested only with it)
 
 # Quickstart
 
@@ -32,8 +32,10 @@ $ ./<input>
 
 # Todos
 
-- [ ] Modularity (include files)
+- [X] Modularity (include files)
 
 - [ ] self hosting
 
 - [ ] string escape sequence
+
+- [ ] vim and emacs support (probably vs code too)

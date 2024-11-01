@@ -179,3 +179,13 @@ Calls the kernel, currently only syswrite.
 ```pascal
     "hello world" 1 1 syswrite // msg len will be pushed automatically, msg, stream, arg
 ```
+
+## include
+
+Includes a file to your main file.
+
+```pascal
+include "std.parfast"
+
+"hello world" print
+```
