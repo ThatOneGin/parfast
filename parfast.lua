@@ -36,12 +36,14 @@ Reserved = {
 	STORE    = enum(),
 	DROP     = enum(),
 	MACRO    = enum(),
+	INCLUDE  = enum(),
 	SYSWRITE = enum(),
-	INCLUDE  = enum()
+	SYSEXIT  = enum(),
+	MUL      = enum(),
+	DIV      = enum()
 }
 
--- probably will be more than this is the future.
-local max_buffer_cap = 1000
+local max_buffer_cap = 10000
 
 local strreserved = {
 	["puts"]     = Reserved.PUTS,
@@ -60,7 +62,10 @@ local strreserved = {
 	["drop"]     = Reserved.DROP,
 	["macro"]    = Reserved.MACRO,
 	["syswrite"] = Reserved.SYSWRITE,
+	["sysexit"]  = Reserved.SYSEXIT,
 	["include"]  = Reserved.INCLUDE,
+	["*"]        = Reserved.MUL,
+	["/"]        = Reserved.DIV
 }
 
 local function pushint(val)
@@ -125,6 +130,9 @@ local function drop()
 end
 local function syswrite()
 	return { Reserved.SYSWRITE }
+end
+local function sysexit()
+	return { Reserved.SYSEXIT }
 end
 
 local function lexl(line)
@@ -255,10 +263,10 @@ local function lexl(line)
 end
 
 local macros = {}
-local included_paths = {}
+local paths = {}
 function parse(tokens)
 	local program = {}
-
+	paths[arg[1]] = true
 
 	local function shift()
 		return table.remove(tokens, 1)
@@ -336,6 +344,9 @@ function parse(tokens)
 		elseif tokens[1].value == "syswrite" then
 			shift()
 			table.insert(program, syswrite())
+		elseif tokens[1].value == "sysexit" then
+			shift()
+			table.insert(program, sysexit())
 		elseif tokens[1].type == Tokentype.Ident then
 			local name = shift().value
 			assert(macros[name] ~= nil, "Cannot find macro or keyword named `" .. name .. "`")
@@ -359,6 +370,11 @@ function parse(tokens)
 				print("Expected string for filepath, got", path.type)
 				os.exit(1)
 			end
+			if paths[path.value] then
+				goto continue
+			else
+				paths[path.value] = true
+			end
 			local file = io.open(path.value, "r")
 			if not file or file == nil then
 				print("Cannot include file, exiting")
@@ -370,6 +386,8 @@ function parse(tokens)
 			end
 			file:close()
 		end
+
+		::continue::
 	end
 
 	return program
@@ -490,6 +508,8 @@ function compile(ir, outname)
 			output:write("\tpop rax\n")
 		elseif op[1] == Reserved.SYSWRITE then
 			output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
+		elseif op[1] == Reserved.SYSEXIT then
+			output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
 		else
 			print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.")
 			os.exit(1)

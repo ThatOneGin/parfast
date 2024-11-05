@@ -1,6 +1,6 @@
 macro stdin 0 end
 macro stdout 1 end
 macro stderr 2 end
-
 macro print stdout 1 syswrite end
 macro error stderr 1 syswrite end
+macro exit sysexit end // <code> exit
