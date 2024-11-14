@@ -43,7 +43,7 @@ Reserved = {
   DIV      = enum()
 }
 
-local max_buffer_cap = 10000
+local max_buffer_cap = 124000
 
 local strreserved = {
   ["puts"]     = Reserved.PUTS,
@@ -255,7 +255,7 @@ local function lexl(line)
       end
       shift() -- closing "
 
-      table.insert(tokens, { type = Tokentype.String, value = str, col = i, line = ln })
+      table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"), col = i, line = ln })
     end
   end
 
@@ -441,7 +441,7 @@ local function hex(str)
   return table.concat(hex, ",")
 end
 
-function compile(ir, outname)
+function compile_linux_x86_64(ir, outname)
   local output = io.open(outname .. ".asm", "w+")
   if not output or output == nil then
     return nil
@@ -541,7 +541,7 @@ function main()
   local tokens = lexl(input:read("a"))
   local ir = parse(tokens)
   local outname = getfilename(arg[1])
-  compile(get_references(ir), outname)
+  compile_linux_x86_64(get_references(ir), outname)
   os.execute("nasm -f elf64 " .. outname .. ".asm")
   os.execute(string.format("ld -o %s %s", outname, outname .. ".o"))
 
