@@ -9,7 +9,7 @@ A stack-oriented, reverse polish notated, compiled and forth-like language that 
 
 # Dependencies
 
-- Nasm (dependency because its tested only with it)
+- Nasm (Used as runtime)
 
 # Quickstart
 
@@ -19,6 +19,13 @@ compile file:
 
 ```console
 $ lua parfast.lua <input.parfast>
+Commands:
+  [nasm -felf64 <input.asm>]
+  [ld -o <input> <input.o>]
+```
+Or alternatively
+```console
+$ ./parfast.lua <inputs.parfast>
 Commands:
   [nasm -felf64 <input.asm>]
   [ld -o <input> <input.o>]
@@ -36,6 +43,6 @@ $ ./<input>
 
 - [ ] self hosting
 
-- [ ] string escape sequence
+- [X] string escape sequence
 
 - [ ] vim and emacs support (probably vs code too)
