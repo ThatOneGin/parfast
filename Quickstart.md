@@ -126,11 +126,11 @@ You can define a macro by just doing this:
 ```pascal
     //macro <name>
     //    <body>
-    //end
+    //endm
     
     macro print
-        dup 1 1 syswrite // prints last string of the stack.
-    end
+        1 1 syswrite // prints last string of the stack.
+    endm
 ```
 
 # 3. misc operands
@@ -173,11 +173,11 @@ mbuf <index> + <value> st
 
 ## sys
 
-Calls the kernel, currently only syswrite.
+Calls the kernel, currently only syswrite and sysexit.
 
 
 ```pascal
-    "hello world" 1 1 syswrite // msg len will be pushed automatically, msg, stream, arg
+    "hello world\n" 1 1 syswrite // msg len will be pushed automatically, msg, stream, arg
 ```
 
 ## include
@@ -187,5 +187,5 @@ Includes a file to your main file.
 ```pascal
 include "std.parfast"
 
-"hello world" print
+"hello world\n" print
 ```

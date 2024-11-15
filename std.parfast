@@ -1,6 +1,13 @@
-macro stdin 0 end
-macro stdout 1 end
-macro stderr 2 end
-macro print stdout 1 syswrite end
-macro error stderr 1 syswrite end
-macro exit sysexit end // <code> exit
+macro stdin 0 endm
+macro stdout 1 endm
+macro stderr 2 endm
+macro print stdout 1 syswrite endm
+macro error stderr 1 syswrite endm
+macro exit sysexit endm // <code> exit
+macro strlen
+  0 swap
+  while dup ld 0 != do
+    1 + swap 1 + swap
+  end
+  drop
+endm

@@ -1,3 +1,5 @@
+#!/bin/lua
+
 counter = 0
 function enum(reset)
   if reset == true then counter = 0 end
@@ -11,7 +13,7 @@ Tokentype = {
   Ident    = enum(),
   Word     = enum(),
   Operator = enum(),
-  String   = enum
+  String   = enum()
 }
 
 Reserved = {
@@ -40,7 +42,8 @@ Reserved = {
   SYSWRITE = enum(),
   SYSEXIT  = enum(),
   MUL      = enum(),
-  DIV      = enum()
+  DIV      = enum(),
+  ENDM     = enum()
 }
 
 local max_buffer_cap = 124000
@@ -64,6 +67,7 @@ local strreserved = {
   ["syswrite"] = Reserved.SYSWRITE,
   ["sysexit"]  = Reserved.SYSEXIT,
   ["include"]  = Reserved.INCLUDE,
+  ["endm"]     = Reserved.ENDM,
   ["*"]        = Reserved.MUL,
   ["/"]        = Reserved.DIV
 }
@@ -194,6 +198,7 @@ local function lexl(line)
     elseif isnewline(src[1]) then
       shift()
       ln = ln + 1
+      i = 0
     elseif src[1] == "<" then
       table.insert(tokens, { type = Tokentype.Operator, value = "<", col = i, line = ln })
       shift()
@@ -336,7 +341,7 @@ function parse(tokens)
         tokens = {}
       }
 
-      while tokens[1].value ~= "end" and #tokens > 1 do
+      while tokens[1].value ~= "endm" and #tokens > 1 do
         table.insert(macro.tokens, shift())
       end
       shift()
@@ -545,7 +550,9 @@ function main()
   os.execute("nasm -f elf64 " .. outname .. ".asm")
   os.execute(string.format("ld -o %s %s", outname, outname .. ".o"))
 
-  print(string.format("Commands: \n\t[nasm -f elf64 %s.asm]\n\t[ld -o %s %s.o]", outname, outname, outname))
+  if arg[2] ~= "-silent" or arg[2] == nil then
+    print(string.format("Commands: \n\t[nasm -f elf64 %s.asm]\n\t[ld -o %s %s.o]", outname, outname, outname))
+  end
 end
 
 main()
