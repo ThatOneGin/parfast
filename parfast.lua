@@ -43,7 +43,9 @@ Reserved = {
   SYSEXIT  = enum(),
   MUL      = enum(),
   DIV      = enum(),
-  ENDM     = enum()
+  ENDM     = enum(),
+  ROT      = enum(),
+  RST      = enum(),
 }
 
 local max_buffer_cap = 124000
@@ -69,7 +71,9 @@ local strreserved = {
   ["include"]  = Reserved.INCLUDE,
   ["endm"]     = Reserved.ENDM,
   ["*"]        = Reserved.MUL,
-  ["/"]        = Reserved.DIV
+  ["/"]        = Reserved.DIV,
+  ["rot"]      = Reserved.ROT,
+  ["rst"]      = Reserved.RST,
 }
 
 local function pushint(val)
@@ -86,6 +90,12 @@ local function add()
 end
 local function sub()
   return { Reserved.SUB }
+end
+local function mul()
+  return { Reserved.MUL }
+end
+local function div()
+  return { Reserved.DIV }
 end
 local function _if()
   return { Reserved.IF }
@@ -138,6 +148,15 @@ end
 local function sysexit()
   return { Reserved.SYSEXIT }
 end
+local function rot()
+  return { Reserved.ROT }
+end
+local function rst()
+  return { Reserved.RST }
+end
+local function rld()
+  return { Reserved.RLD }
+end
 
 local function lexl(line)
   local tokens = {}
@@ -173,7 +192,7 @@ local function lexl(line)
       local identifier = ""
       local col = i
 
-      while isalpha(src[1]) do
+      while isalpha(src[1]) or src[1] == "_" or src[1] == "-" do
         identifier = identifier .. src[1]
         shift()
       end
@@ -188,8 +207,8 @@ local function lexl(line)
 
       local col = i
       while isdigit(src[1]) do
-        digit = digit .. src[1]
-        shift()
+	digit = digit .. tostring(src[1])
+	shift()
       end
 
       table.insert(tokens, { type = Tokentype.Number, value = digit, col = col, line = ln })
@@ -239,6 +258,9 @@ local function lexl(line)
     elseif src[1] == "-" then
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
+    elseif src[1] == "*" then
+       shift()
+       table.insert(tokens, { type = Tokentype.Operator, value = "*", col = i, line = ln })
     elseif src[1] == "\"" then
       shift() -- opening "
       local str = ""
@@ -261,6 +283,9 @@ local function lexl(line)
       shift() -- closing "
 
       table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"), col = i, line = ln })
+    else
+      print("Cannot recognize char", src[1])
+      shift()
     end
   end
 
@@ -326,6 +351,9 @@ function parse(tokens)
     elseif tokens[1].value == "ld" then
       shift()
       table.insert(program, ld())
+    elseif tokens[1].value == "rst" then
+      shift()
+      table.insert(program, rst())
     elseif tokens[1].value == "mbuf" then
       shift()
       table.insert(program, mbuf())
@@ -352,6 +380,15 @@ function parse(tokens)
     elseif tokens[1].value == "sysexit" then
       shift()
       table.insert(program, sysexit())
+    elseif tokens[1].value == "*" then
+      shift()
+      table.insert(program, mul())
+    elseif tokens[1].value == "/" then
+      shift()
+      table.insert(program, div())
+    elseif tokens[1].value == "rot" then
+      shift()
+      table.insert(program, rot())
     elseif tokens[1].type == Tokentype.Ident then
       local name = shift().value
       assert(macros[name] ~= nil, "Cannot find macro or keyword named `" .. name .. "`")
@@ -451,7 +488,7 @@ function compile_linux_x86_64(ir, outname)
   if not output or output == nil then
     return nil
   end
-
+  output:write("BITS 64\n")
   output:write(
     "puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
   output:write(
@@ -473,6 +510,10 @@ function compile_linux_x86_64(ir, outname)
       output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")
     elseif op[1] == Reserved.SUB then
       output:write("\tpop rax\n\tpop rbx\n\tsub rbx, rax\n\tpush rbx\n")
+    elseif op[1] == Reserved.MUL then
+       output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
+    elseif op[1] == Reserved.DIV then
+       output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
     elseif op[1] == Reserved.PUTS then
       output:write("\tpop rdi\n\tcall puts\n")
     elseif op[1] == Reserved.IF then
@@ -484,8 +525,7 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.DUP then
       output:write("\tpop rax\n\tpush rax\n\tpush rax\n")
     elseif op[1] == Reserved.EQU then
-      output:write(
-        "\tmov rcx, 0\n\tmov rdx, 1\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
+      output:write("\tmov rcx, 0\n\tmov rdx, 1\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
     elseif op[1] == Reserved.NEQ then
       output:write(
         "\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
@@ -506,17 +546,21 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.MBUF then
       output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
-      output:write("\tpop rax\n\txor rbx, rbx\n\tmov bl, [rax]\n\tpush rbx\n")
+      output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.STORE then
-      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], bl\n")
+      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
     elseif op[1] == Reserved.DROP then
       output:write("\tpop rax\n")
+    elseif op[1] == Reserved.ROT then
+      output:write("\tpop rax\n\tpop rbx\n\tpop rcx\n\tpush rbx\n\tpush rax\n\tpush rcx\n")
+    elseif op[1] == Reserved.RST then
+      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], rbx\n")
     elseif op[1] == Reserved.SYSWRITE then
       output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
     elseif op[1] == Reserved.SYSEXIT then
       output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
     else
-      print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.")
+      print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
     end
   end
@@ -547,7 +591,7 @@ function main()
   local ir = parse(tokens)
   local outname = getfilename(arg[1])
   compile_linux_x86_64(get_references(ir), outname)
-  os.execute("nasm -f elf64 " .. outname .. ".asm")
+  os.execute("nasm -felf64 " .. outname .. ".asm")
   os.execute(string.format("ld -o %s %s", outname, outname .. ".o"))
 
   if arg[2] ~= "-silent" or arg[2] == nil then

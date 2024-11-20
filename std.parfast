@@ -11,3 +11,11 @@ macro strlen
   end
   drop
 endm
+
+macro st-n-inc
+  dup ld 1 + rst
+endm
+
+macro st-n-dec
+  dup ld 1 - rst
+endm
