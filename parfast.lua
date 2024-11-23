@@ -483,6 +483,88 @@ local function hex(str)
   return table.concat(hex, ",")
 end
 
+function run_program(ir)
+  local stack = {}
+  local memory_buffer = {}
+
+  for i=1, #ir do
+    local op = ir[i]
+
+    if op[1] == Reserved.PUSH_INT then
+      table.insert(stack, op[2])
+    elseif op[1] == Reserved.ADD then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, a + b)
+    elseif op[1] == Reserved.SUB then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, b - a)
+    elseif op[1] == Reserved.DIV then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, b / a)
+    elseif op[1] == Reserved.MUL then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, b * a)
+    elseif op[1] == Reserved.PUTS then
+      print(table.remove(stack))
+    elseif op[1] == Reserved.GT then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, tonumber(a > b))
+    elseif op[1] == Reserved.LT then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, tonumber(a < b))
+    elseif op[1] == Reserved.DUP then
+      local a = table.remove(stack)
+      table.insert(stack, a)
+      table.insert(stack, a)
+    elseif op[1] == Reserved.DROP then
+      table.remove(stack)
+    elseif op[1] == Reserved.EQU then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, tonumber(a == b))
+    elseif op[1] == Reserved.NEQ then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+
+      table.insert(stack, tonumber(a ~= b))
+    elseif op[1] == Reserved.SWAP then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+      table.insert(stack, a)
+      table.insert(stack, b)
+    elseif op[1] == Reserved.ROT then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+      local c = table.remove(stack)
+      table.insert(stack, b)
+      table.insert(stack, a)
+      table.insert(stack, c)
+    elseif op[1] == Reserved.IF then
+      local cd = table.remove(stack)
+      if cd == 0 then
+        i = op[2]
+      end
+    elseif op[1] == Reserved.ELSE then
+      i = op[2]
+    elseif op[1] == Reserved.END then
+      i = op[2]
+    end
+  end
+end
+
 function compile_linux_x86_64(ir, outname)
   local output = io.open(outname .. ".asm", "w+")
   if not output or output == nil then
@@ -583,19 +665,25 @@ end
 
 function main()
   local input = io.open(arg[1], "r")
+
   if not input or input == nil then
     print("Cannot open file, such no directory or lacks permission.")
     os.exit(1)
   end
+
   local tokens = lexl(input:read("a"))
   local ir = parse(tokens)
   local outname = getfilename(arg[1])
+
+  if arg[2] == "-com" then
   compile_linux_x86_64(get_references(ir), outname)
   os.execute("nasm -felf64 " .. outname .. ".asm")
   os.execute(string.format("ld -o %s %s", outname, outname .. ".o"))
-
-  if arg[2] ~= "-silent" or arg[2] == nil then
-    print(string.format("Commands: \n\t[nasm -f elf64 %s.asm]\n\t[ld -o %s %s.o]", outname, outname, outname))
+    if not arg[3] then
+      print(string.format("Commands: \n\t[nasm -f elf64 %s.asm]\n\t[ld -o %s %s.o]", outname, outname, outname))
+    end
+  elseif arg[2] == "-run" then
+    run_program(ir)
   end
 end
 
