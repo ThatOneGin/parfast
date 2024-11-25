@@ -46,6 +46,8 @@ Reserved = {
   ENDM     = enum(),
   ROT      = enum(),
   RST      = enum(),
+  EXTERN   = enum(),
+  CALL     = enum()
 }
 
 local max_buffer_cap = 124000
@@ -74,6 +76,8 @@ local strreserved = {
   ["/"]        = Reserved.DIV,
   ["rot"]      = Reserved.ROT,
   ["rst"]      = Reserved.RST,
+  ["extern"]   = Reserved.EXTERN,
+  ["call"]     = Reserved.CALL
 }
 
 local function pushint(val)
@@ -156,6 +160,12 @@ local function rst()
 end
 local function rld()
   return { Reserved.RLD }
+end
+local function extern(extern_fn)
+  return { Reserved.EXTERN, extern_fn }
+end
+local function call_extern(extern_fn)
+  return { Reserved.CALL, extern_fn }
 end
 
 local function lexl(line)
@@ -360,6 +370,12 @@ function parse(tokens)
     elseif tokens[1].value == "drop" then
       shift()
       table.insert(program, drop())
+    elseif tokens[1].value == "extern" then
+      shift()
+      table.insert(program, extern(shift().value))
+    elseif tokens[1].value == "call" then
+      shift()
+      table.insert(program, call_extern(shift().value))
     elseif tokens[1].value == "macro" then
       -- TODO: security mechanism for recursion and stacked macros
       shift()
@@ -483,20 +499,28 @@ local function hex(str)
   return table.concat(hex, ",")
 end
 
+local function bool_to_number(value)
+  return value and 1 or 0
+end
+
 function run_program(ir)
   local stack = {}
   local memory_buffer = {}
 
+  -- no need to do syscalls here as this interpretation is only for testing code.
+  
   for i=1, #ir do
     local op = ir[i]
 
     if op[1] == Reserved.PUSH_INT then
-      table.insert(stack, op[2])
+      table.insert(stack, tonumber(op[2]))
     elseif op[1] == Reserved.ADD then
       local a = table.remove(stack)
       local b = table.remove(stack)
 
       table.insert(stack, a + b)
+    elseif op[1] == Reserved.PUSH_STR then
+      table.insert(stack, op[2])
     elseif op[1] == Reserved.SUB then
       local a = table.remove(stack)
       local b = table.remove(stack)
@@ -513,17 +537,17 @@ function run_program(ir)
 
       table.insert(stack, b * a)
     elseif op[1] == Reserved.PUTS then
-      print(table.remove(stack))
+      io.write(table.remove(stack))
     elseif op[1] == Reserved.GT then
       local a = table.remove(stack)
       local b = table.remove(stack)
 
-      table.insert(stack, tonumber(a > b))
+      table.insert(stack, bool_to_number(a > b))
     elseif op[1] == Reserved.LT then
       local a = table.remove(stack)
       local b = table.remove(stack)
 
-      table.insert(stack, tonumber(a < b))
+      table.insert(stack, bool_to_number(b < a))
     elseif op[1] == Reserved.DUP then
       local a = table.remove(stack)
       table.insert(stack, a)
@@ -534,12 +558,12 @@ function run_program(ir)
       local a = table.remove(stack)
       local b = table.remove(stack)
 
-      table.insert(stack, tonumber(a == b))
+      table.insert(stack, bool_to_number(a == b))
     elseif op[1] == Reserved.NEQ then
       local a = table.remove(stack)
       local b = table.remove(stack)
 
-      table.insert(stack, tonumber(a ~= b))
+      table.insert(stack, bool_to_number(a ~= b))
     elseif op[1] == Reserved.SWAP then
       local a = table.remove(stack)
       local b = table.remove(stack)
@@ -561,6 +585,11 @@ function run_program(ir)
       i = op[2]
     elseif op[1] == Reserved.END then
       i = op[2]
+    elseif op[1] == Reserved.WHILE then
+    elseif op[1] == Reserved.DO then
+      if table.remove(stack) == 0 then
+        i = op[2]
+      end
     end
   end
 end
@@ -580,14 +609,20 @@ function compile_linux_x86_64(ir, outname)
   output:write("section .text\n\tglobal _start\n\n_start:\n")
 
   local strings = {}
+  local extern_fns = {}
   for i, op in pairs(ir) do
     output:write(string.format("op_%d:\n", i))
 
     if op[1] == Reserved.PUSH_INT then
       output:write(string.format("\tpush %d\n", op[2]))
     elseif op[1] == Reserved.PUSH_STR then
-       table.insert(strings, op[2])
+      table.insert(strings, op[2])
       output:write(string.format("\tpush %d\n\tpush string_%d\n", string.len(op[2]), #strings))
+    elseif op[1] == Reserved.CALL then
+      output:write(string.format("\tcall %s\n", extern_fns[op[2]]))
+    elseif op[1] == Reserved.EXTERN then
+      output:write(string.format("extern %s\n", op[2]))
+      extern_fns[op[2]] = op[2]
     elseif op[1] == Reserved.ADD then
       output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")
     elseif op[1] == Reserved.SUB then
@@ -674,6 +709,13 @@ function main()
   local tokens = lexl(input:read("a"))
   local ir = parse(tokens)
   local outname = getfilename(arg[1])
+
+  for i,v in pairs(arg) do
+    if v == "-object" then
+      compile_linux_x86_64(get_references(ir), outname)
+      os.execute("nasm -f elf64 -o ".. outname .. ".o " .. outname .. ".asm")
+    end
+  end
 
   if arg[2] == "-com" then
   compile_linux_x86_64(get_references(ir), outname)
