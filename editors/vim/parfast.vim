@@ -1,24 +1,25 @@
 " parfast.vim
-" syntax file for parfast
-" dont working, i really dont know vimscript
+" syntax highlight support for vim
 
-syntax clear
+if exists("b:current_syntax")
+  finish
+endif
 
-hi def link parfast_key Keyword
-hi def link parfast_str String
-hi def link parfast_comment Comment
-hi def link parfast_number Number
+syn keyword parfastKeyword if else while include end endm macro extern call
 
-syntax enable
+syn match parfastComment "//.*$"
 
-syntax match parfast_key /\v\<(if|else|include|while|macro|end|endm)\>/
-syntax match parfast_str /".*"/
-syntax match parfast_comment /\/\/.*/
-syntax match parfast_number /\v\d+(\.\d+)?/
+" Define syntax for strings
+syn match parfastString /"\(.\|\n\)*?"/
+syn match parfastString /"\(.\|\n\)*?"/
 
-" filetype recognition
+syn match parfastNumber /\v\d+(\.\d+)?/
 
-augroup filetypedetect
-  autocmd!
-  autocmd BufNewFile,BufRead *.parfast setf parfast
-augroup END
+hi def link parfastKeyword Keyword
+hi def link parfastComment Comment
+hi def link parfastString String
+hi def link parfastNumber Number
+
+let b:current_syntax = "parfast"
+
+autocmd BufRead,BufNewFile *.parfast set filetype=parfast
