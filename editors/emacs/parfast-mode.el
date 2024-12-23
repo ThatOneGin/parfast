@@ -6,11 +6,14 @@
     (modify-syntax-entry ?' "\"")
     (syntax-table))
   "Syntax table for `parfast-mode'")
+
 (eval-and-compile
   (defconst parfast-keys
     '("if" "else" "while" "do" "include" "end" "macro" "endm")))
+
 (defconst parfast-h
   `((,(regexp-opt parfast-keys 'symbols) . font-lock-keyword-face)))
+
 (define-derived-mode parfast-mode fundamental-mode "parfast"
   "major mode for editing parfast code"
   :syntax-table parfast-mode-syntax-table

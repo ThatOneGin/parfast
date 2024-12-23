@@ -9,7 +9,6 @@ syn keyword parfastKeyword if else while include end endm macro extern call
 
 syn match parfastComment "//.*$"
 
-" Define syntax for strings
 syn match parfastString /"\(.\|\n\)*?"/
 syn match parfastString /"\(.\|\n\)*?"/
 

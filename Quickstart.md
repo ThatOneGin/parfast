@@ -1,3 +1,5 @@
+# Warn, this quickstart is outdated, working on an updated quickstart.
+
 # 1. Basics
 
 Parfast as a stack-oriented, reverse polish notated and forth-like, is a bit complex initially, but with a bit of patience, it can be more readable.

@@ -5,7 +5,7 @@
   -->       @@     @@  @@ @@  @@ @@     @@  @@     @@   @@   
       -->   @@     @@  @@ @@  @@ @@     @@  @@  @@@@    @@   
 ```
-A stack-oriented, reverse polish notated, compiled and forth-like language that targets x86_64 assembly currently.
+A stack-oriented, reverse polish notated, compiled and forth-like language that targets x86_64 assembly.
 
 # Dependencies
 
@@ -13,19 +13,19 @@ A stack-oriented, reverse polish notated, compiled and forth-like language that 
 
 # Quickstart
 
-for more detailed overview, check [quickstart](Quickstart.md)
+for more detailed overview and demonstrations of the syntax, check [quickstart](Quickstart.md)
 
 compile file:
 
 ```console
-$ lua parfast.lua <input.parfast>
+$ lua parfast.lua <input.parfast> -com
 Commands:
   [nasm -felf64 <input.asm>]
   [ld -o <input> <input.o>]
 ```
 Or alternatively
 ```console
-$ ./parfast.lua <inputs.parfast>
+$ ./parfast.lua <input.parfast> -com
 Commands:
   [nasm -felf64 <input.asm>]
   [ld -o <input> <input.o>]
@@ -34,7 +34,7 @@ Commands:
 run file:
 
 ```console
-$ ./<input>
+$ ./parfast.lua <input.parfast> -run
 ```
 
 # Todos
@@ -45,4 +45,4 @@ $ ./<input>
 
 - [X] string escape sequence
 
-- [ ] vim and emacs support (probably vs code too)
+- [X] vim and emacs support (probably vs code too)
