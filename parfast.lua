@@ -164,8 +164,8 @@ end
 local function extern(extern_fn)
   return { Reserved.EXTERN, extern_fn }
 end
-local function call_extern(extern_fn)
-  return { Reserved.CALL, extern_fn }
+local function call_extern(extern_fn, nargs)
+  return { Reserved.CALL, extern_fn , nargs}
 end
 
 local function lexl(line)
@@ -375,7 +375,10 @@ function parse(tokens)
       table.insert(program, extern(shift().value))
     elseif tokens[1].value == "call" then
       shift()
-      table.insert(program, call_extern(shift().value))
+      local name = shift().value
+      local nargs = shift().value
+      assert(tonumber(nargs) ~= nil, "Number of args of a extern call must be a number.")
+      table.insert(program, call_extern(name, tonumber(nargs)))
     elseif tokens[1].value == "macro" then
       -- TODO: security mechanism for recursion and stacked macros
       shift()
@@ -595,6 +598,8 @@ function run_program(ir)
 end
 
 function compile_linux_x86_64(ir, outname)
+  local register_args_table = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"}
+
   local output = io.open(outname .. ".asm", "w+")
   if not output or output == nil then
     return nil
@@ -619,9 +624,15 @@ function compile_linux_x86_64(ir, outname)
       table.insert(strings, op[2])
       output:write(string.format("\tpush %d\n\tpush string_%d\n", string.len(op[2]), #strings))
     elseif op[1] == Reserved.CALL then
+      if op[3] > 0 then
+        assert(op[3] <= #register_args_table)
+        for i = 1, op[3] do
+          output:write(string.format("\tpop %s\n", register_args_table[i]))
+        end
+      end
       output:write(string.format("\tcall %s\n", extern_fns[op[2]]))
     elseif op[1] == Reserved.EXTERN then
-      output:write(string.format("extern %s\n", op[2]))
+      output:write(string.format("\textern %s\n", op[2]))
       extern_fns[op[2]] = op[2]
     elseif op[1] == Reserved.ADD then
       output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")

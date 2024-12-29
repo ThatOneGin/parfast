@@ -41,7 +41,7 @@ $ ./parfast.lua <input.parfast> -run
 
 - [X] Modularity (include files)
 
-- [ ] self hosting
+- [ ] self hosting (probably never XD)
 
 - [X] string escape sequence
 

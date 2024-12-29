@@ -1,5 +1,3 @@
-# Warn, this quickstart is outdated, working on an updated quickstart.
-
 # 1. Basics
 
 Parfast as a stack-oriented, reverse polish notated and forth-like, is a bit complex initially, but with a bit of patience, it can be more readable.
@@ -19,7 +17,7 @@ a value can be pushed to the stack by simple typing it.
 and a value can also be drop from the stack
 
 ```pascal
-    10 drop // now the stack is empty
+    10 drop // now the stack is "empty"
 ```
 
 ## Add and sub (+, -)
@@ -173,6 +171,10 @@ mbuf <index> + <value> st
 
 ```
 
+## rst
+
+Same as [st](#st) but in reverse order.
+
 ## sys
 
 Calls the kernel, currently only syswrite and sysexit.
@@ -190,4 +192,23 @@ Includes a file to your main file.
 include "std.parfast"
 
 "hello world\n" print
+```
+
+## rot
+
+rotate the stack in this order: a, b, c | b, a, c.
+
+# 4. Calling C from parfast and vice-versa
+
+```c
+extern mycfunction // declare as extern
+
+call mycfunction 0 // call mycfunction plus it number of arguments
+```
+
+```c
+extern printf
+
+"Hello, parfast\n"
+call printf 1
 ```
