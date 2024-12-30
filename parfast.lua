@@ -46,6 +46,7 @@ Reserved = {
   ENDM     = enum(),
   ROT      = enum(),
   RST      = enum(),
+  RLD      = enum(),
   EXTERN   = enum(),
   CALL     = enum()
 }
@@ -76,6 +77,7 @@ local strreserved = {
   ["/"]        = Reserved.DIV,
   ["rot"]      = Reserved.ROT,
   ["rst"]      = Reserved.RST,
+  ["rld"]      = Reserved.RLD,
   ["extern"]   = Reserved.EXTERN,
   ["call"]     = Reserved.CALL
 }
@@ -302,8 +304,28 @@ local function lexl(line)
   return tokens
 end
 
+
+
 local macros = {}
 local paths = {}
+
+local function expand_macro(macro_name)
+  local expanded_tokens = {}
+  local macro_tokens = macros[macro_name]
+  for _, token in ipairs(macro_tokens) do
+    if token.value == "macro" then
+      local nested_macro_name = token.value
+      local nested_expanded_tokens = expand_macro(nested_macro_name)
+      for _, nested_token in ipairs(nested_expanded_tokens) do
+        table.insert(expanded_tokens, nested_token)
+      end
+    else
+      table.insert(expanded_tokens, token)
+    end
+  end
+  return expanded_tokens
+end
+
 function parse(tokens)
   local program = {}
   paths[arg[1]] = true
@@ -364,6 +386,9 @@ function parse(tokens)
     elseif tokens[1].value == "rst" then
       shift()
       table.insert(program, rst())
+    elseif tokens[1].value == "rld" then
+      shift()
+      table.insert(program, rld())
     elseif tokens[1].value == "mbuf" then
       shift()
       table.insert(program, mbuf())
@@ -408,14 +433,11 @@ function parse(tokens)
     elseif tokens[1].value == "rot" then
       shift()
       table.insert(program, rot())
-    elseif tokens[1].type == Tokentype.Ident then
-      local name = shift().value
-      assert(macros[name] ~= nil, "Cannot find macro or keyword named `" .. name .. "`")
-
-      local macrovalue = parse(macros[name])
-
-      for i = 1, #macrovalue do
-        table.insert(program, macrovalue[i])
+    elseif macros[tokens[1].value] then
+      local macro_name = shift().value
+      local expanded_tokens = parse(expand_macro(macro_name))
+      for _, token in ipairs(expanded_tokens) do
+        table.insert(program, token)
       end
     elseif tokens[1].type == Tokentype.Number then
       local val = shift().value
@@ -674,19 +696,21 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.MBUF then
       output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
-      output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
-    elseif op[1] == Reserved.STORE then
       output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
+    elseif op[1] == Reserved.STORE then
+      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], rbx\n")
     elseif op[1] == Reserved.DROP then
       output:write("\tpop rax\n")
     elseif op[1] == Reserved.ROT then
       output:write("\tpop rax\n\tpop rbx\n\tpop rcx\n\tpush rbx\n\tpush rax\n\tpush rcx\n")
     elseif op[1] == Reserved.RST then
-      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], rbx\n")
+      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
     elseif op[1] == Reserved.SYSWRITE then
       output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
     elseif op[1] == Reserved.SYSEXIT then
       output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
+    elseif op[1] == Reserved.RLD then
+      output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -709,7 +733,15 @@ local function getfilename(filepath)
   return sfilepath
 end
 
+local function parfast_assert(expr, errmsg)
+  if not expr then
+    print(errmsg)
+    os.exit(1)
+  end
+end
+
 function main()
+  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-object\n\n\t\027[31mERROR\027[0m: not enough arguments.")
   local input = io.open(arg[1], "r")
 
   if not input or input == nil then
