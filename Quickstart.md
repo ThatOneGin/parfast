@@ -93,8 +93,8 @@ Performs x != y on the last two elements of the stack.
 
 
 ```pascal
-10 10 + 20 ==
-if
+
+if 10 10 + 20 == then
     1 puts
 else
     0 puts

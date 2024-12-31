@@ -3,7 +3,7 @@ macro stdout 1 endm
 macro stderr 2 endm
 macro print stdout 1 syswrite endm
 macro error stderr 1 syswrite endm
-macro exit sysexit endm // <code> exit
+macro exit sysexit endm
 macro strlen
   0 swap
   while dup ld 0 != do
@@ -19,3 +19,6 @@ endm
 macro st-n-dec
   dup ld 1 - rst
 endm
+
+macro true 1 endm
+macro false 0 endm

@@ -48,7 +48,9 @@ Reserved = {
   RST      = enum(),
   RLD      = enum(),
   EXTERN   = enum(),
-  CALL     = enum()
+  CALL     = enum(),
+  ELSEIF   = enum(),
+  THEN     = enum()
 }
 
 local max_buffer_cap = 124000
@@ -79,7 +81,9 @@ local strreserved = {
   ["rst"]      = Reserved.RST,
   ["rld"]      = Reserved.RLD,
   ["extern"]   = Reserved.EXTERN,
-  ["call"]     = Reserved.CALL
+  ["call"]     = Reserved.CALL,
+  ["elseif"]   = Reserved.ELSEIF,
+  ["then"]     = Reserved.THEN
 }
 
 local function pushint(val)
@@ -168,6 +172,12 @@ local function extern(extern_fn)
 end
 local function call_extern(extern_fn, nargs)
   return { Reserved.CALL, extern_fn , nargs}
+end
+local function _elseif()
+  return { Reserved.ELSEIF }
+end
+local function _then()
+  return { Reserved.THEN }
 end
 
 local function lexl(line)
@@ -468,6 +478,12 @@ function parse(tokens)
         table.insert(program, i_tokens[i])
       end
       file:close()
+    elseif tokens[1].value == "elseif" then
+      shift()
+      table.insert(program, _elseif())
+    elseif tokens[1].value == "then" then
+      shift()
+      table.insert(program, _then())
     end
 
     ::continue::
@@ -493,21 +509,69 @@ local function get_references(program)
       elseif program[end_block][1] == Reserved.DO then
         program[i] = { Reserved.END, program[end_block][2] }
         program[end_block] = { Reserved.DO, i + 1 }
+      elseif program[end_block][1] == Reserved.THEN then
+        local p_end = program[end_block][2]
+        if program[p_end][1] == Reserved.ELSEIF then
+          program[p_end][2] = i
+          program[i][2] = i + 1
+          program[end_block][2] = i + 1
+        elseif program[p_end][1] == Reserved.IF then
+          program[i][2] = i + 1
+          program[end_block][2] = i + 1
+        else
+          print("'then' can only be used in if-elseif-else blocks")
+          os.exit(1)
+        end
       end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
     elseif opr[1] == Reserved.ELSE then
       local if_location = table.remove(ref_stack)
 
-      if program[if_location][1] ~= Reserved.IF then
-        print("Else is not being used in an if statement.")
+      if program[if_location][1] ~= Reserved.THEN then
+        print("'else' can only be used in if-elseif-then blocks.")
         os.exit(1)
       end
-      program[if_location] = { Reserved.IF, i + 1 }
-      table.insert(ref_stack, i)
+      local pre_if = program[if_location][2]
+
+      if program[pre_if][1] == Reserved.IF then
+        program[if_location][2] = i + 1
+        table.insert(ref_stack, i)
+      elseif program[pre_if][1] == Reserved.ELSEIF then
+        program[pre_if][2] = i
+        program[if_location][2] = i + 1
+        table.insert(ref_stack, i)
+      else
+        print("'else' is not closing 'then' block preceded by if-elseif.")
+        os.exit(1)
+      end
     elseif opr[1] == Reserved.DO then
       local while_ref = table.remove(ref_stack)
       program[i] = { Reserved.DO, while_ref }
+      table.insert(ref_stack, i)
+    elseif opr[1] == Reserved.ELSEIF then
+      local then_ip = table.remove(ref_stack)
+
+      if program[then_ip][1] ~= Reserved.THEN then
+        print("'elseif' can only close 'then' blocks.")
+        os.exit(1)
+      end
+      local p_ip = program[then_ip][2]
+
+      if program[p_ip][1] == Reserved.ELSEIF then
+        program[then_ip][2] = i + 1
+        program[p_ip][2] = i
+        table.insert(ref_stack, i)
+      elseif program[p_ip][1] == Reserved.IF then
+        program[then_ip][2] = i + 1
+        table.insert(ref_stack, i)
+      else
+        print("'elseif' can only close 'if-then' blocks.")
+        os.exit(1)
+      end
+    elseif opr[1] == Reserved.THEN then
+      local then_ref = table.remove(ref_stack)
+      program[i][2] = then_ref
       table.insert(ref_stack, i)
     end
   end
@@ -667,7 +731,7 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.PUTS then
       output:write("\tpop rdi\n\tcall puts\n")
     elseif op[1] == Reserved.IF then
-      output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
+      output:write("\t; if\n")
     elseif op[1] == Reserved.END then
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
@@ -711,6 +775,10 @@ function compile_linux_x86_64(ir, outname)
       output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
+    elseif op[1] == Reserved.THEN then
+      output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
+    elseif op[1] == Reserved.ELSEIF then
+      output:write(string.format("\tjmp op_%d\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
