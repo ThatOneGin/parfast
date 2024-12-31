@@ -626,7 +626,7 @@ function run_program(ir)
 
       table.insert(stack, b * a)
     elseif op[1] == Reserved.PUTS then
-      io.write(table.remove(stack))
+      print(table.remove(stack))
     elseif op[1] == Reserved.GT then
       local a = table.remove(stack)
       local b = table.remove(stack)
@@ -796,8 +796,8 @@ function compile_linux_x86_64(ir, outname)
 end
 
 -- Extension should be .parfast
-local function getfilename(filepath)
-  local sfilepath = string.gsub(filepath, ".parfast", "")
+local function remove_file_extension(filepath)
+  local sfilepath = string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
   return sfilepath
 end
 
@@ -808,9 +808,29 @@ local function parfast_assert(expr, errmsg)
   end
 end
 
+local function parse_args()
+  local i = 1
+  local flags = {}
+
+  while i <= #arg do
+    local flag_or_file = arg[i]
+
+    if flag_or_file:sub(1, 1) == "-" then
+      flags[flag_or_file] = true
+    else
+      flags["-file"] = flag_or_file
+    end
+    i = i + 1
+  end
+
+  return flags
+end
+
 function main()
-  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-object\n\n\t\027[31mERROR\027[0m: not enough arguments.")
-  local input = io.open(arg[1], "r")
+  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-obj\n\n\t\027[31mERROR\027[0m: not enough arguments.")
+  local flags = parse_args()
+  parfast_assert(flags["-file"] ~= nil, "\027[31mERROR\027[0m: No input file provided.")
+  local input = io.open(flags["-file"], "r")
 
   if not input or input == nil then
     print("Cannot open file, such no directory or lacks permission.")
@@ -819,24 +839,23 @@ function main()
 
   local tokens = lexl(input:read("a"))
   local ir = parse(tokens)
-  local outname = getfilename(arg[1])
+  local outname = remove_file_extension(flags["-file"])
 
-  for i,v in pairs(arg) do
-    if v == "-object" then
-      compile_linux_x86_64(get_references(ir), outname)
-      os.execute("nasm -f elf64 -o ".. outname .. ".o " .. outname .. ".asm")
-    end
+  if flags["-com"] then
+    compile_linux_x86_64(get_references(ir), outname)
+    os.execute("nasm -f elf64 "..outname..".asm")
+    os.execute(string.format("ld -o %s %s.o", outname, outname))
   end
-
-  if arg[2] == "-com" then
-  compile_linux_x86_64(get_references(ir), outname)
-  os.execute("nasm -felf64 " .. outname .. ".asm")
-  os.execute(string.format("ld -o %s %s", outname, outname .. ".o"))
-    if not arg[3] then
-      print(string.format("Commands: \n\t[nasm -f elf64 %s.asm]\n\t[ld -o %s %s.o]", outname, outname, outname))
-    end
-  elseif arg[2] == "-run" then
-    run_program(ir)
+  if flags["-run"] then
+    run_program(get_references(ir))
+    os.exit(0)
+  end
+  if flags["-obj"] then
+    os.execute("nasm -f elf64 "..flags["-file"])
+  end
+  if not flags["-silent"] then
+    print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
+    print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
   end
 end
 

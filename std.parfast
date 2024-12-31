@@ -9,15 +9,14 @@ macro strlen
   while dup ld 0 != do
     1 + swap 1 + swap
   end
-  drop
 endm
 
 macro st-n-inc
-  dup ld 1 + rst
+  dup rld 1 + rst
 endm
 
 macro st-n-dec
-  dup ld 1 - rst
+  dup rld 1 - rst
 endm
 
 macro true 1 endm
