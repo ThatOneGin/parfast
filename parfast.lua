@@ -332,7 +332,7 @@ local function lexl(line)
       table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"), col = i, line = ln })
     else
       print("Cannot recognize char", src[1])
-      shift()
+      os.exit(1)
     end
   end
 
@@ -524,6 +524,9 @@ function parse(tokens)
     elseif tokens[1].value == "then" then
       shift()
       table.insert(program, _then())
+    else
+      print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
+      os.exit(1)
     end
 
     ::continue::
