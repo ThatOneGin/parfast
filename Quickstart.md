@@ -9,14 +9,14 @@ These two operations are basically opposite, so take a look
 ### Push
 
 a value can be pushed to the stack by simple typing it.
-```pascal
+```c
     10
     "hello world"
 ```
 
 and a value can also be drop from the stack
 
-```pascal
+```c
     10 drop // now the stack is "empty"
 ```
 
@@ -30,7 +30,7 @@ It simply performs an addition to the last two values of the stack.
 
 Performs a subtraction to the last two values of the stack.
 
-```pascal
+```c
     34 14 + // 48
     23 - // 25
 ```
@@ -45,7 +45,7 @@ Duplicates the last value from the stack.
 
 Prints the last value from the stack (mostly a debug function)
 
-```pascal
+```c
     10 dup // [10 10]
     puts puts // output: 10 10 stack: [ ]
 ```
@@ -60,7 +60,7 @@ Performs x > y on the last two elements of the stack.
 
 performs x < y on the last two elements of the stack.
 
-```pascal
+```c
     10 19 < // stack: [1 ]
     19 10 < // stack: [1 0 ]
     
@@ -79,7 +79,7 @@ Performs x == y on the last two elements of the stack.
 Performs x != y on the last two elements of the stack.
 
 
-```pascal
+```c
     10 10 == // stack: [1 ]
     10 10 != // stack: [1 0 ]
     
@@ -139,7 +139,7 @@ You can define a macro by just doing this:
 
 Swap two elements from the stack
 
-```pascal
+```c
     32
     12
     // stack: [32 12]
@@ -153,7 +153,7 @@ While not a operand itself, but a way to access the memory buffer. (currently ex
 
 ## ld
 
-Load a byte at mbuf.
+Load a byte at mbuf. It can also dereference a pointer.
 
 ```
 
@@ -163,7 +163,7 @@ mbuf <index> + ld
 
 ## st
 
-Stores a byte in mbuf
+Stores a byte in mbuf or any other pointer.
 
 ```
 
@@ -175,20 +175,20 @@ mbuf <index> + <value> st
 
 Same as [st](#st) but in reverse order.
 
-## sys
+## syscalls
 
-Calls the kernel, currently only syswrite and sysexit.
+Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work. E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments.
 
 
-```pascal
-    "hello world\n" 1 1 syswrite // msg len will be pushed automatically, msg, stream, arg
+```c
+    "hello world\n" 1 1 syscall4 // msg len will be pushed automatically, msg, stream, arg
 ```
 
 ## include
 
 Includes a file to your main file.
 
-```pascal
+```c
 include "std.parfast"
 
 "hello world\n" print
@@ -196,9 +196,9 @@ include "std.parfast"
 
 ## rot
 
-rotate the stack in this order: a, b, c | b, a, c.
+rotate the stack in this order: c, b, a (stored as a, b, c in the stack), output is: c, a, b
 
-# 4. Calling C from parfast and vice-versa
+# 4. Calling C from parfast
 
 ```c
 extern mycfunction // declare as extern

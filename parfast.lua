@@ -39,8 +39,6 @@ Reserved = {
   DROP     = enum(),
   MACRO    = enum(),
   INCLUDE  = enum(),
-  SYSWRITE = enum(),
-  SYSEXIT  = enum(),
   MUL      = enum(),
   DIV      = enum(),
   ENDM     = enum(),
@@ -50,7 +48,14 @@ Reserved = {
   EXTERN   = enum(),
   CALL     = enum(),
   ELSEIF   = enum(),
-  THEN     = enum()
+  THEN     = enum(),
+  SYSCALL0 = enum(),
+  SYSCALL1 = enum(),
+  SYSCALL4 = enum(),
+  SYSCALL2 = enum(),
+  SYSCALL6 = enum(),
+  SYSCALL3 = enum(),
+  SYSCALL5 = enum()
 }
 
 local max_buffer_cap = 124000
@@ -71,8 +76,6 @@ local strreserved = {
   ["ld"]       = Reserved.LOAD,
   ["drop"]     = Reserved.DROP,
   ["macro"]    = Reserved.MACRO,
-  ["syswrite"] = Reserved.SYSWRITE,
-  ["sysexit"]  = Reserved.SYSEXIT,
   ["include"]  = Reserved.INCLUDE,
   ["endm"]     = Reserved.ENDM,
   ["*"]        = Reserved.MUL,
@@ -83,7 +86,14 @@ local strreserved = {
   ["extern"]   = Reserved.EXTERN,
   ["call"]     = Reserved.CALL,
   ["elseif"]   = Reserved.ELSEIF,
-  ["then"]     = Reserved.THEN
+  ["then"]     = Reserved.THEN,
+  ["syscall0"] = Reserved.SYSCALL0,
+  ["syscall1"] = Reserved.SYSCALL1,
+  ["syscall2"] = Reserved.SYSCALL2,
+  ["syscall3"] = Reserved.SYSCALL3,
+  ["syscall4"] = Reserved.SYSCALL4,
+  ["syscall5"] = Reserved.SYSCALL5,
+  ["syscall6"] = Reserved.SYSCALL6
 }
 
 local function pushint(val)
@@ -152,12 +162,6 @@ end
 local function drop()
   return { Reserved.DROP }
 end
-local function syswrite()
-  return { Reserved.SYSWRITE }
-end
-local function sysexit()
-  return { Reserved.SYSEXIT }
-end
 local function rot()
   return { Reserved.ROT }
 end
@@ -178,6 +182,27 @@ local function _elseif()
 end
 local function _then()
   return { Reserved.THEN }
+end
+local function syscall0()
+  return { Reserved.SYSCALL0 }
+end
+local function syscall1()
+  return { Reserved.SYSCALL1 }
+end
+local function syscall2()
+  return { Reserved.SYSCALL2 }
+end
+local function syscall3()
+  return { Reserved.SYSCALL3 }
+end
+local function syscall4()
+  return { Reserved.SYSCALL4 }
+end
+local function syscall5()
+  return { Reserved.SYSCALL5 }
+end
+local function syscall6()
+  return { Reserved.SYSCALL6 }
 end
 
 local function lexl(line)
@@ -214,7 +239,7 @@ local function lexl(line)
       local identifier = ""
       local col = i
 
-      while isalpha(src[1]) or src[1] == "_" or src[1] == "-" do
+      while isalpha(src[1]) or src[1] == "_" or src[1] == "-" or isdigit(src[1]) do
         identifier = identifier .. src[1]
         shift()
       end
@@ -229,8 +254,8 @@ local function lexl(line)
 
       local col = i
       while isdigit(src[1]) do
-	digit = digit .. tostring(src[1])
-	shift()
+	      digit = digit .. tostring(src[1])
+	      shift()
       end
 
       table.insert(tokens, { type = Tokentype.Number, value = digit, col = col, line = ln })
@@ -414,6 +439,27 @@ function parse(tokens)
       local nargs = shift().value
       assert(tonumber(nargs) ~= nil, "Number of args of a extern call must be a number.")
       table.insert(program, call_extern(name, tonumber(nargs)))
+    elseif tokens[1].value == "syscall0" then
+      shift()
+      table.insert(program, syscall0())
+    elseif tokens[1].value == "syscall1" then
+      shift()
+      table.insert(program, syscall1())
+    elseif tokens[1].value == "syscall2" then
+      shift()
+      table.insert(program, syscall2())
+    elseif tokens[1].value == "syscall3" then
+      shift()
+      table.insert(program, syscall3())
+    elseif tokens[1].value == "syscall4" then
+      shift()
+      table.insert(program, syscall4())
+    elseif tokens[1].value == "syscall5" then
+      shift()
+      table.insert(program, syscall5())
+    elseif tokens[1].value == "syscall6" then
+      shift()
+      table.insert(program, syscall6())
     elseif tokens[1].value == "macro" then
       -- TODO: security mechanism for recursion and stacked macros
       shift()
@@ -428,12 +474,6 @@ function parse(tokens)
       end
       shift()
       macros[macro.name] = macro.tokens
-    elseif tokens[1].value == "syswrite" then
-      shift()
-      table.insert(program, syswrite())
-    elseif tokens[1].value == "sysexit" then
-      shift()
-      table.insert(program, sysexit())
     elseif tokens[1].value == "*" then
       shift()
       table.insert(program, mul())
@@ -779,6 +819,20 @@ function compile_linux_x86_64(ir, outname)
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
       output:write(string.format("\tjmp op_%d\n", op[2]))
+    elseif op[1] == Reserved.SYSCALL0 then
+      output:write("pop rax\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL1 then
+      output:write("pop rax\npop rdi\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL2 then
+      output:write("pop rax\npop rdi\npop rsi\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL3 then
+      output:write("pop rax\npop rdi\npop rsi\npop rdx\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL4 then
+      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL5 then
+      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.SYSCALL6 then
+      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\npop r9\nsyscall\npush rax\n")
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
