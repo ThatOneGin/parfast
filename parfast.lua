@@ -67,6 +67,7 @@ Reserved = {
   MOD      = enum()
 }
 -- if you allocate, it will grow
+local buffer_offset = 0
 local max_buffer_cap = 0
 
 local strreserved = {
@@ -571,7 +572,7 @@ function parse(tokens)
       
       local stack = {}
 
-      while tokens[1].value ~= "endm" do
+      while tokens[1].value ~= "end" do
         local op = shift()
         if op.type == Tokentype.Operator or op.type == Tokentype.Number then
           subset_eval(stack, op)
@@ -588,8 +589,9 @@ function parse(tokens)
 
       parfast_assert(#stack > 0, "Memory allocation expects one integer value. got "..#stack)
       local mem_to_grow = table.remove(stack)
-      memories[memory.value] = mem_to_grow
-      max_buffer_cap = max_buffer_cap + mem_to_grow
+      memories[memory.value] = buffer_offset
+      max_buffer_cap = max_buffer_cap + mem_to_grow + buffer_offset
+      buffer_offset = buffer_offset + mem_to_grow
     elseif memories[tokens[1].value] ~= nil then
       table.insert(program, mem(memories[tokens[1].value]))
       shift()
