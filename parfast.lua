@@ -8,6 +8,13 @@ function enum(reset)
   return val
 end
 
+local function parfast_assert(expr, errmsg)
+  if not expr then
+    print(errmsg)
+    os.exit(1)
+  end
+end
+
 Tokentype = {
   Number   = enum(true),
   Ident    = enum(),
@@ -55,10 +62,12 @@ Reserved = {
   SYSCALL2 = enum(),
   SYSCALL6 = enum(),
   SYSCALL3 = enum(),
-  SYSCALL5 = enum()
+  SYSCALL5 = enum(),
+  MEM      = enum(),
+  MOD      = enum()
 }
-
-local max_buffer_cap = 124000
+-- if you allocate, it will grow
+local max_buffer_cap = 0
 
 local strreserved = {
   ["puts"]     = Reserved.PUTS,
@@ -93,7 +102,8 @@ local strreserved = {
   ["syscall3"] = Reserved.SYSCALL3,
   ["syscall4"] = Reserved.SYSCALL4,
   ["syscall5"] = Reserved.SYSCALL5,
-  ["syscall6"] = Reserved.SYSCALL6
+  ["syscall6"] = Reserved.SYSCALL6,
+  ["mem"]      = Reserved.MEM
 }
 
 local function pushint(val)
@@ -116,6 +126,9 @@ local function mul()
 end
 local function div()
   return { Reserved.DIV }
+end
+local function mod()
+  return { Reserved.MOD }
 end
 local function _if()
   return { Reserved.IF }
@@ -203,6 +216,9 @@ local function syscall5()
 end
 local function syscall6()
   return { Reserved.SYSCALL6 }
+end
+local function mem(size)
+  return { Reserved.MEM, size }
 end
 
 local function lexl(line)
@@ -306,8 +322,11 @@ local function lexl(line)
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
     elseif src[1] == "*" then
-       shift()
-       table.insert(tokens, { type = Tokentype.Operator, value = "*", col = i, line = ln })
+      shift()
+      table.insert(tokens, { type = Tokentype.Operator, value = "*", col = i, line = ln })
+    elseif src[1] == "%" then
+      shift()
+      table.insert(tokens, { type = Tokentype.Operator, value = "%", col = i, line = ln })
     elseif src[1] == "\"" then
       shift() -- opening "
       local str = ""
@@ -361,12 +380,29 @@ local function expand_macro(macro_name)
   return expanded_tokens
 end
 
+local memories = {}
 function parse(tokens)
   local program = {}
   paths[arg[1]] = true
 
   local function shift()
     return table.remove(tokens, 1)
+  end
+
+  local function subset_eval(stack, tk)
+    if tk.type == Tokentype.Number then
+      table.insert(stack, tonumber(tk.value))
+    elseif tk.value == "+" then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+      table.insert(stack, b + a)
+    elseif tk.value == "*" then
+      local a = table.remove(stack)
+      local b = table.remove(stack)
+      table.insert(stack, b * a)
+    else
+      parfast_assert(false, "Unsupported tokentype "..tk.value)
+    end
   end
 
   while #tokens > 0 do
@@ -504,6 +540,7 @@ function parse(tokens)
         os.exit(1)
       end
       if paths[path.value] then
+        shift()
         goto continue
       else
         paths[path.value] = true
@@ -524,6 +561,41 @@ function parse(tokens)
     elseif tokens[1].value == "then" then
       shift()
       table.insert(program, _then())
+    elseif tokens[1].value == "mem" then
+      shift()
+      local memory = shift()
+      
+      parfast_assert(memory.type == Tokentype.Ident, string.format("Expected memory name to be a word got '%s'. ", memory.value))
+      parfast_assert(macros[memory.value] == nil, string.format("Trying to redefine a macro. '%s'", memory.value))
+      parfast_assert(memories[memory.value] == nil, string.format("%d:%d Trying to redefine a memory region. '%s'", memory.line, memory.col, memory.value))
+      
+      local stack = {}
+
+      while tokens[1].value ~= "endm" do
+        local op = shift()
+        if op.type == Tokentype.Operator or op.type == Tokentype.Number then
+          subset_eval(stack, op)
+        elseif macros[op.value] ~= nil and op.type == Tokentype.Ident then
+          local expanded_tokens = expand_macro(op.value)
+          for i, v in pairs(expanded_tokens) do
+            subset_eval(stack, v)
+          end
+        else
+          parfast_assert(false, string.format("type not supported %s", op.value))
+        end
+      end
+      shift()
+
+      parfast_assert(#stack > 0, "Memory allocation expects one integer value. got "..#stack)
+      local mem_to_grow = table.remove(stack)
+      memories[memory.value] = mem_to_grow
+      max_buffer_cap = max_buffer_cap + mem_to_grow
+    elseif memories[tokens[1].value] ~= nil then
+      table.insert(program, mem(memories[tokens[1].value]))
+      shift()
+    elseif tokens[1].value == "%" then
+      table.insert(program, mod())
+      shift()
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
       os.exit(1)
@@ -823,19 +895,23 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.ELSEIF then
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
-      output:write("pop rax\nsyscall\npush rax\n")
+      output:write("\tpop rax\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL1 then
-      output:write("pop rax\npop rdi\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL2 then
-      output:write("pop rax\npop rdi\npop rsi\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\npop rsi\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL3 then
-      output:write("pop rax\npop rdi\npop rsi\npop rdx\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL4 then
-      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL5 then
-      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\nsyscall\npush rax\n")
     elseif op[1] == Reserved.SYSCALL6 then
-      output:write("pop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\npop r9\nsyscall\npush rax\n")
+      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\npop r9\nsyscall\npush rax\n")
+    elseif op[1] == Reserved.MEM then
+      output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
+    elseif op[1] == Reserved.MOD then
+      output:write("\tpop rax\n\tpop rbx\n\txor rdx, rdx\n\tdiv rbx\n\tpush rax\n\tpush rdx\n")
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -856,13 +932,6 @@ end
 local function remove_file_extension(filepath)
   local sfilepath = string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
   return sfilepath
-end
-
-local function parfast_assert(expr, errmsg)
-  if not expr then
-    print(errmsg)
-    os.exit(1)
-  end
 end
 
 local function parse_args()

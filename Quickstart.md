@@ -177,11 +177,11 @@ Same as [st](#st) but in reverse order.
 
 ## syscalls
 
-Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work. E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments.
+Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work. E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments. (but all of them need atleast one thing in the stack that will be pushed to the rax register)
 
 
 ```c
-    "hello world\n" 1 1 syscall4 // msg len will be pushed automatically, msg, stream, arg
+    "hello world\n" 1 1 syscall3 // msg len will be pushed automatically, msg, stream, arg
 ```
 
 ## include
