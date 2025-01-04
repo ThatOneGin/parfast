@@ -1,1 +1,3 @@
-"Hello, world!\n" 1 1 syswrite
+include "std.parfast"
+
+"Hello, world!\n" print

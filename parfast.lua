@@ -64,7 +64,9 @@ Reserved = {
   SYSCALL3 = enum(),
   SYSCALL5 = enum(),
   MEM      = enum(),
-  MOD      = enum()
+  MOD      = enum(),
+  ARGC     = enum(),
+  ARGV     = enum()
 }
 -- if you allocate, it will grow
 local buffer_offset = 0
@@ -104,7 +106,9 @@ local strreserved = {
   ["syscall4"] = Reserved.SYSCALL4,
   ["syscall5"] = Reserved.SYSCALL5,
   ["syscall6"] = Reserved.SYSCALL6,
-  ["mem"]      = Reserved.MEM
+  ["mem"]      = Reserved.MEM,
+  ["argc"]     = Reserved.ARGC,
+  ["arv"]      = Reserved.ARGV
 }
 
 local function pushint(val)
@@ -220,6 +224,12 @@ local function syscall6()
 end
 local function mem(size)
   return { Reserved.MEM, size }
+end
+local function argc()
+  return { Reserved.ARGC }
+end
+local function argv()
+  return { Reserved.ARGV }
 end
 
 local function lexl(line)
@@ -598,6 +608,12 @@ function parse(tokens)
     elseif tokens[1].value == "%" then
       table.insert(program, mod())
       shift()
+    elseif tokens[1].value == "argc" then
+      shift()
+      table.insert(program, argc())
+    elseif tokens[1].value == "argv" then
+      shift()
+      table.insert(program, argv())
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
       os.exit(1)
@@ -813,8 +829,8 @@ function compile_linux_x86_64(ir, outname)
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
-  output:write("section .bss\n\tmbuf: resb " .. max_buffer_cap .. "\n")
-  output:write("section .text\n\tglobal _start\n\n_start:\n")
+  output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " .. max_buffer_cap .. "\n")
+  output:write("section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n")
 
   local strings = {}
   local extern_fns = {}
@@ -914,6 +930,10 @@ function compile_linux_x86_64(ir, outname)
       output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
     elseif op[1] == Reserved.MOD then
       output:write("\tpop rax\n\tpop rbx\n\txor rdx, rdx\n\tdiv rbx\n\tpush rax\n\tpush rdx\n")
+    elseif op[1] == Reserved.ARGC then
+      output:write("\tmov rax, [args]\n\tmov rax, [rax]\n\tpush rax\n")
+    elseif op[1] == Reserved.ARGV then
+      output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)

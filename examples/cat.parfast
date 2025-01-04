@@ -1,0 +1,26 @@
+include "std.parfast"
+
+macro buffer-size 8 1000 * endm
+macro argv-index 8 * argv + rld endm
+
+mem buffer // buffer to store file content.
+  buffer-size
+end
+mem fd // buffer to store file descriptor and close it later.
+  8
+end
+
+if argc 2 < then
+  "Error: no input file." 1 1 syscall3
+  1 60 syscall1 drop
+else
+  "r" swap drop 0 1 argv-index 2 syscall3
+
+  buffer-size swap
+  buffer swap
+  dup fd rst
+  0 syscall3
+
+  buffer print
+  fd rld syscall1 // close file
+end

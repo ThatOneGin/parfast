@@ -1,10 +1,8 @@
 macro stdin 0 endm
 macro stdout 1 endm
 macro stderr 2 endm
-macro syswrite 1 1 syscall3 endm
+macro syswrite 1 syscall3 endm
 macro sysexit 60 syscall1 endm
-macro print stdout 1 syswrite endm
-macro error stderr 1 syswrite endm
 macro exit sysexit endm
 macro strlen
   0 swap
@@ -23,3 +21,6 @@ endm
 
 macro true 1 endm
 macro false 0 endm
+macro fprint syswrite drop endm
+macro print stdout fprint endm
+macro eprint stderr fprint endm
