@@ -348,7 +348,7 @@ local function lexl(line)
       end
       shift() -- closing "
 
-      table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"), col = i, line = ln })
+      table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"):gsub("\\t", "\t"), col = i, line = ln })
     elseif src[1] == "'" then
       shift() -- opening "
       local str = ""
@@ -893,7 +893,7 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.MBUF then
       output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
-      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
+      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n\tpush rax\n")
     elseif op[1] == Reserved.STORE then
       output:write("\tpop rbx\n\tpop rax\n\tmov [rax], rbx\n")
     elseif op[1] == Reserved.DROP then
@@ -950,6 +950,140 @@ function compile_linux_x86_64(ir, outname)
   output:close()
 end
 
+function check_unhandled_data(program)
+  local types = {str = enum(true), ptr = enum(), int = enum(), bool = enum()}
+  local stack = {}
+
+  local function type_as_string(typ)
+    if typ == types.str then
+      return "Str"
+    elseif typ == types.ptr then
+      return "Ptr"
+    elseif typ == types.int then
+      return "Int"
+    elseif typ == types.bool then
+      return "Bool"
+    end
+  end
+
+  local function push(typ)
+    table.insert(stack, typ)
+  end
+
+  local function pop()
+    if #stack > 0 then
+      return table.remove(stack)
+    end
+  end
+
+  for i = 1, #program do
+    if program[i][1] == Reserved.PUSH_INT then
+      push(types.int)
+    elseif program[i][1] == Reserved.PUSH_STR then
+      push(types.int)
+      push(types.str)
+    elseif program[i][1] == Reserved.MEM or program[i][1] == Reserved.MBUF or program[i][1] == Reserved.ARGV then
+      push(types.ptr)
+    elseif program[i][1] == Reserved.ADD or program[i][1] == Reserved.SUB or program[i][1] == Reserved.MUL or program[i][1] == Reserved.DIV or program[i][1] == Reserved.MOD then
+      local a = pop()
+      local b = pop()
+      
+      if a == types.ptr and b == types.int then
+        push(types.ptr)
+      elseif a == types.int and b == types.ptr then
+        push(types.ptr)
+      else
+        push(types.int)
+      end
+    elseif program[i][1] == Reserved.DUP then
+      local a = pop()
+      push(a)
+      push(a)
+    elseif program[i][1] == Reserved.SWAP then
+      local a = pop()
+      local b = pop()
+      push(a)
+      push(b)
+    elseif program[i][1] == Reserved.ROT then
+      local a = pop()
+      local b = pop()
+      local c = pop()
+      push(b)
+      push(a)
+      push(c)
+    elseif program[i][1] == Reserved.PUTS then
+      pop()
+    elseif program[i][1] == Reserved.NEQ or program[i][1] == Reserved.EQ then
+      pop()
+      pop()
+      push(types.bool)
+    elseif program[i][1] == Reserved.DO or program[i][1] == Reserved.THEN or program[i][1] == Reserved.DROP then
+      pop()
+    elseif program[i][1] == Reserved.GT or program[i][1] == Reserved.LT then
+      pop()
+      pop()
+      push(types.bool)
+    elseif program[i][1] == Reserved.ARGC then
+      push(types.int)
+    elseif program[i][1] == Reserved.RST or program[i][1] == Reserved.STORE then
+      pop()
+      pop()
+    elseif program[i][1] == Reserved.RLD or program[i][1] == Reserved.LOAD then
+      pop()
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL0 then
+      pop()
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL1 then
+      parfast_assert(#stack >= 2, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 2 do
+        pop()
+      end
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL2 then
+      parfast_assert(#stack >= 3, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 3 do
+        pop()
+      end
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL3 then
+      parfast_assert(#stack >= 4, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 4 do
+        pop()
+      end
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL4 then
+      parfast_assert(#stack >= 5, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 5 do
+        pop()
+      end
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL5 then
+      parfast_assert(#stack >= 6, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 6 do
+        pop()
+      end
+      push(types.int)
+    elseif program[i][1] == Reserved.SYSCALL6 then
+      parfast_assert(#stack >= 7, "Not enough arguments for syscall. "..#stack)
+      for _ = 1, 7 do
+        pop()
+      end
+      push(types.int)
+    end
+  end
+
+  if #stack == 1 then
+    print(string.format("\027[31mWarn\027[0m:Unused data in stack, please drop it. Type: %s", type_as_string(stack[#stack])))
+  elseif #stack > 1 then
+    print("\027[31mWarn\027[0m:Unused data in stack, please drop them. Types: ")
+    for i = 1, #stack do
+      io.write(i .. ": " .. type_as_string(stack[i]) .. " ")
+    end
+    print("\n")
+  end
+end
+
 -- Extension should be .parfast
 local function remove_file_extension(filepath)
   local sfilepath = string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
@@ -974,9 +1108,22 @@ local function parse_args()
   return flags
 end
 
+function print_help()
+  print("Usage: parfast <input.parfast> -com/-run/-obj/-help\n")
+  print("\t\"-com\" Compile and link generated files with nasm.")
+  print("\t\"-run\" Interpret file, can be slower and more limited than compilation.")
+  print("\t\"-obj\" Compile generated file with no linking step.")
+  print("\ndisable warning flags: \n\t\"-Wunused-data\" Disable default type checking and unused data in stack.")
+  print("\nOther options: \n\t\"-silent\" Disable messages of what is being passed to shell, for example: nasm or ld.")
+end
+
 function main()
-  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-obj\n\n\t\027[31mERROR\027[0m: not enough arguments.")
+  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-obj/-help\n\n\t\027[31mERROR\027[0m: not enough arguments.")
   local flags = parse_args()
+  if flags["-help"] then
+    print_help()
+    os.exit(0)
+  end
   parfast_assert(flags["-file"] ~= nil, "\027[31mERROR\027[0m: No input file provided.")
   local input = io.open(flags["-file"], "r")
 
@@ -990,16 +1137,26 @@ function main()
   local outname = remove_file_extension(flags["-file"])
 
   if flags["-com"] then
+    if not flags["-Wunused-data"] then
+      check_unhandled_data(ir)
+    end
     compile_linux_x86_64(get_references(ir), outname)
     os.execute("nasm -f elf64 "..outname..".asm")
     os.execute(string.format("ld -o %s %s.o", outname, outname))
   end
   if flags["-run"] then
+    if not flags["-Wunused-data"] then
+      check_unhandled_data(ir)
+    end
     run_program(get_references(ir))
     os.exit(0)
   end
   if flags["-obj"] then
-    os.execute("nasm -f elf64 "..flags["-file"])
+    if not flags["-Wunused-data"] then
+      check_unhandled_data(ir)
+    end
+    compile_linux_x86_64(get_references(ir), outname)
+    os.execute("nasm -f elf64 "..outname..".asm")
   end
   if not flags["-silent"] then
     print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
