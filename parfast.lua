@@ -66,7 +66,10 @@ Reserved = {
   MEM      = enum(),
   MOD      = enum(),
   ARGC     = enum(),
-  ARGV     = enum()
+  ARGV     = enum(),
+  FN       = enum(),
+  RET      = enum(),
+  FN_CALL  = enum()
 }
 -- if you allocate, it will grow
 local buffer_offset = 0
@@ -108,7 +111,9 @@ local strreserved = {
   ["syscall6"] = Reserved.SYSCALL6,
   ["mem"]      = Reserved.MEM,
   ["argc"]     = Reserved.ARGC,
-  ["arv"]      = Reserved.ARGV
+  ["arv"]      = Reserved.ARGV,
+  ["fn"]       = Reserved.FN,
+  ["ret"]      = Reserved.RET
 }
 
 local function pushint(val)
@@ -230,6 +235,15 @@ local function argc()
 end
 local function argv()
   return { Reserved.ARGV }
+end
+local function fn()
+  return { Reserved.FN }
+end
+local function ret()
+  return { Reserved.RET }
+end
+local function fn_call(ip)
+  return { Reserved.FN_CALL, ip }
 end
 
 local function lexl(line)
@@ -392,6 +406,7 @@ local function expand_macro(macro_name)
 end
 
 local memories = {}
+local functions = {}
 function parse(tokens)
   local program = {}
   paths[arg[1]] = true
@@ -412,11 +427,14 @@ function parse(tokens)
       local b = table.remove(stack)
       table.insert(stack, b * a)
     else
-      parfast_assert(false, "Unsupported tokentype "..tk.value)
+      parfast_assert(false, string.format("%d:%d Unsupported tokentype %s", tk.line, tk.col, tk.value))
     end
   end
 
+  local ip = 1
+  local is_fn_declaration = false
   while #tokens > 0 do
+    ip = #program + 1
     if tokens[1].value == "puts" then
       shift()
       table.insert(program, puts())
@@ -432,6 +450,7 @@ function parse(tokens)
     elseif tokens[1].value == "end" then
       shift()
       table.insert(program, _end())
+      is_fn_declaration = false
     elseif tokens[1].value == "==" then
       shift()
       table.insert(program, equ())
@@ -484,7 +503,7 @@ function parse(tokens)
       shift()
       local name = shift().value
       local nargs = shift().value
-      assert(tonumber(nargs) ~= nil, "Number of args of a extern call must be a number.")
+      assert(tonumber(nargs) ~= nil, string.format("%d:%d Number of args of a extern call must be a number.", tokens[1].line, tokens[1].col))
       table.insert(program, call_extern(name, tonumber(nargs)))
     elseif tokens[1].value == "syscall0" then
       shift()
@@ -508,7 +527,6 @@ function parse(tokens)
       shift()
       table.insert(program, syscall6())
     elseif tokens[1].value == "macro" then
-      -- TODO: security mechanism for recursion and stacked macros
       shift()
       local name = shift().value
       local macro = {
@@ -576,8 +594,8 @@ function parse(tokens)
       shift()
       local memory = shift()
       
-      parfast_assert(memory.type == Tokentype.Ident, string.format("Expected memory name to be a word got '%s'. ", memory.value))
-      parfast_assert(macros[memory.value] == nil, string.format("Trying to redefine a macro. '%s'", memory.value))
+      parfast_assert(memory.type == Tokentype.Ident, string.format("%d:%d Expected memory name to be a word got '%s'. ", memory.line, memory.col, memory.value))
+      parfast_assert(macros[memory.value] == nil, string.format("%d:%d Trying to redefine a macro. '%s'", memory.line, memory.col, memory.value))
       parfast_assert(memories[memory.value] == nil, string.format("%d:%d Trying to redefine a memory region. '%s'", memory.line, memory.col, memory.value))
       
       local stack = {}
@@ -592,7 +610,7 @@ function parse(tokens)
             subset_eval(stack, v)
           end
         else
-          parfast_assert(false, string.format("type not supported %s", op.value))
+          parfast_assert(false, string.format("%d:%d type/operation not supported '%s'", op.line, op.col, op.value))
         end
       end
       shift()
@@ -602,6 +620,8 @@ function parse(tokens)
       memories[memory.value] = buffer_offset
       max_buffer_cap = max_buffer_cap + mem_to_grow + buffer_offset
       buffer_offset = buffer_offset + mem_to_grow
+
+      --ip = ip - 1
     elseif memories[tokens[1].value] ~= nil then
       table.insert(program, mem(memories[tokens[1].value]))
       shift()
@@ -614,19 +634,38 @@ function parse(tokens)
     elseif tokens[1].value == "argv" then
       shift()
       table.insert(program, argv())
+    elseif tokens[1].value == "fn" then
+      if is_fn_declaration then
+        parfast_assert(false, string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
+      end
+      is_fn_declaration = true
+      shift()
+      table.insert(program, fn())
+      parfast_assert(#tokens > 1, "Expected function name.")
+      local name = shift()
+      parfast_assert(name.type == Tokentype.Ident, "Expected function name to be a word.")
+      functions[name.value] = ip + 1
+    elseif tokens[1].value == "ret" then
+      shift()
+      table.insert(program, ret())
+    elseif functions[tokens[1].value] ~= nil then
+      table.insert(program, fn_call(functions[tokens[1].value]))
+      shift()
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
       os.exit(1)
     end
 
     ::continue::
+    --ip = ip + 1
   end
 
   return program
 end
 
 local function get_references(program)
-  ref_stack = {}
+  local ref_stack = {}
+  local call_stack = {}
 
   for i = 1, #program do
     local opr = program[i]
@@ -655,6 +694,10 @@ local function get_references(program)
           print("'then' can only be used in if-elseif-else blocks")
           os.exit(1)
         end
+      elseif program[end_block][1] == Reserved.FN then
+        program[end_block][2] = i + 1
+        program[i][2] = i + 1
+        table.insert(ref_stack, i)
       end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
@@ -706,6 +749,22 @@ local function get_references(program)
       local then_ref = table.remove(ref_stack)
       program[i][2] = then_ref
       table.insert(ref_stack, i)
+    elseif opr[1] == Reserved.FN then
+      table.insert(ref_stack, i)
+    elseif opr[1] == Reserved.FN_CALL then
+      if #ref_stack > 0 then
+        local end_ip = table.remove(ref_stack)
+        if program[end_ip][1] == Reserved.END then
+          program[end_ip][2] = i + 1
+        end
+      elseif #call_stack > 0 then
+        local ret_ip = table.remove(call_stack)
+        if program[ret_ip][1] == Reserved.RET then
+          program[ret_ip][2] = i + 1
+        end
+      end
+    elseif opr[1] == Reserved.RET then
+      table.insert(call_stack, i)
     end
   end
 
@@ -913,19 +972,19 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.ELSEIF then
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
-      output:write("\tpop rax\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL1 then
-      output:write("\tpop rax\npop rdi\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL2 then
-      output:write("\tpop rax\npop rdi\npop rsi\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL3 then
-      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL4 then
-      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL5 then
-      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL6 then
-      output:write("\tpop rax\npop rdi\npop rsi\npop rdx\npop rcx\npop r8\npop r9\nsyscall\npush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.MEM then
       output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
     elseif op[1] == Reserved.MOD then
@@ -934,6 +993,8 @@ function compile_linux_x86_64(ir, outname)
       output:write("\tmov rax, [args]\n\tmov rax, [rax]\n\tpush rax\n")
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
+    elseif op[1] == Reserved.FN or op[1] == Reserved.RET or op[1] == Reserved.FN_CALL then
+      output:write(string.format("\tjmp op_%d\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -1070,6 +1131,8 @@ function check_unhandled_data(program)
         pop()
       end
       push(types.int)
+    elseif program[i][1] == Reserved.FN or Reserved.FN_CALL or program[i][1] == Reserved.END then
+      i = program[i][2]
     end
   end
 
@@ -1135,27 +1198,28 @@ function main()
   local tokens = lexl(input:read("a"))
   local ir = parse(tokens)
   local outname = remove_file_extension(flags["-file"])
-
+  local parsed_ir = get_references(ir)
+  
   if flags["-com"] then
     if not flags["-Wunused-data"] then
-      check_unhandled_data(ir)
+      check_unhandled_data(parsed_ir)
     end
-    compile_linux_x86_64(get_references(ir), outname)
+    compile_linux_x86_64(parsed_ir, outname)
     os.execute("nasm -f elf64 "..outname..".asm")
     os.execute(string.format("ld -o %s %s.o", outname, outname))
   end
   if flags["-run"] then
     if not flags["-Wunused-data"] then
-      check_unhandled_data(ir)
+      check_unhandled_data(parsed_ir)
     end
-    run_program(get_references(ir))
+    run_program(parsed_ir)
     os.exit(0)
   end
   if flags["-obj"] then
     if not flags["-Wunused-data"] then
-      check_unhandled_data(ir)
+      check_unhandled_data(parsed_ir)
     end
-    compile_linux_x86_64(get_references(ir), outname)
+    compile_linux_x86_64(get_references(parsed_ir), outname)
     os.execute("nasm -f elf64 "..outname..".asm")
   end
   if not flags["-silent"] then
