@@ -24,3 +24,4 @@ macro false 0 endm
 macro fprint syswrite drop endm
 macro print stdout fprint endm
 macro eprint stderr fprint endm
+macro 2drop drop drop endm

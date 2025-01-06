@@ -925,6 +925,7 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.IF then
       output:write("\t; if\n")
     elseif op[1] == Reserved.END then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
       end
@@ -946,15 +947,17 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.WHILE then
       output:write("\t; while\n")
     elseif op[1] == Reserved.DO then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSE then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.MBUF then
       output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
-      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n\tpush rax\n")
+      output:write("\tpop rax\n\txor rbx, rbx\n\tmov bl, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.STORE then
-      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], rbx\n")
+      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], bl\n")
     elseif op[1] == Reserved.DROP then
       output:write("\tpop rax\n")
     elseif op[1] == Reserved.ROT then
@@ -968,8 +971,10 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
       output:write("\tpop rax\n\tsyscall\n\tpush rax\n")
@@ -994,6 +999,7 @@ function compile_linux_x86_64(ir, outname)
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     elseif op[1] == Reserved.FN or op[1] == Reserved.RET or op[1] == Reserved.FN_CALL then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
@@ -1137,9 +1143,9 @@ function check_unhandled_data(program)
   end
 
   if #stack == 1 then
-    print(string.format("\027[31mWarn\027[0m:Unused data in stack, please drop it. Type: %s", type_as_string(stack[#stack])))
+    print(string.format("\027[33mWarn\027[0m: Unused data in stack, please drop it. Type: %s", type_as_string(stack[#stack])))
   elseif #stack > 1 then
-    print("\027[31mWarn\027[0m:Unused data in stack, please drop them. Types: ")
+    print("\027[33mWarn\027[0m: Unused data in stack, please drop them. Types: ")
     for i = 1, #stack do
       io.write(i .. ": " .. type_as_string(stack[i]) .. " ")
     end
@@ -1201,28 +1207,28 @@ function main()
   local parsed_ir = get_references(ir)
   
   if flags["-com"] then
+    compile_linux_x86_64(parsed_ir, outname)
+    os.execute("nasm -f elf64 "..outname..".asm")
     if not flags["-Wunused-data"] then
       check_unhandled_data(parsed_ir)
     end
-    compile_linux_x86_64(parsed_ir, outname)
-    os.execute("nasm -f elf64 "..outname..".asm")
     os.execute(string.format("ld -o %s %s.o", outname, outname))
   end
   if flags["-run"] then
-    if not flags["-Wunused-data"] then
-      check_unhandled_data(parsed_ir)
-    end
     run_program(parsed_ir)
     os.exit(0)
-  end
-  if flags["-obj"] then
     if not flags["-Wunused-data"] then
       check_unhandled_data(parsed_ir)
     end
+  end
+  if flags["-obj"] then
     compile_linux_x86_64(get_references(parsed_ir), outname)
     os.execute("nasm -f elf64 "..outname..".asm")
+    if not flags["-Wunused-data"] then
+      check_unhandled_data(parsed_ir)
+    end
   end
-  if not flags["-silent"] then
+  if not flags["-silent"] and not flags["-run"] then
     print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
     print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
   end
