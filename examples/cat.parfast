@@ -1,7 +1,6 @@
 include "std.parfast"
 
 macro buffer-size 8 1000 * endm
-macro argv-index 8 * argv + rld endm
 
 mem buffer // buffer to store file content.
   buffer-size

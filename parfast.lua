@@ -68,6 +68,7 @@ Reserved = {
   ARGC     = enum(),
   ARGV     = enum(),
   FN       = enum(),
+  FN_BODY  = enum(),
   RET      = enum(),
   FN_CALL  = enum()
 }
@@ -113,7 +114,6 @@ local strreserved = {
   ["argc"]     = Reserved.ARGC,
   ["arv"]      = Reserved.ARGV,
   ["fn"]       = Reserved.FN,
-  ["ret"]      = Reserved.RET
 }
 
 local function pushint(val)
@@ -635,19 +635,19 @@ function parse(tokens)
       shift()
       table.insert(program, argv())
     elseif tokens[1].value == "fn" then
-      if is_fn_declaration then
+      if is_fn_declaration or is_macro_declaration then
         parfast_assert(false, string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
       end
       is_fn_declaration = true
       shift()
+      
       table.insert(program, fn())
+      table.insert(program, {Reserved.FN_BODY})
+      
       parfast_assert(#tokens > 1, "Expected function name.")
       local name = shift()
       parfast_assert(name.type == Tokentype.Ident, "Expected function name to be a word.")
       functions[name.value] = ip + 1
-    elseif tokens[1].value == "ret" then
-      shift()
-      table.insert(program, ret())
     elseif functions[tokens[1].value] ~= nil then
       table.insert(program, fn_call(functions[tokens[1].value]))
       shift()
@@ -694,10 +694,11 @@ local function get_references(program)
           print("'then' can only be used in if-elseif-else blocks")
           os.exit(1)
         end
-      elseif program[end_block][1] == Reserved.FN then
-        program[end_block][2] = i + 1
-        program[i][2] = i + 1
-        table.insert(ref_stack, i)
+      elseif program[end_block][1] == Reserved.FN_BODY then
+	program[end_block][2] = i + 1
+        end_block = table.remove(ref_stack)
+	program[end_block][2] = i + 1
+	program[i] = {Reserved.RET, i + 1}
       end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
@@ -749,7 +750,7 @@ local function get_references(program)
       local then_ref = table.remove(ref_stack)
       program[i][2] = then_ref
       table.insert(ref_stack, i)
-    elseif opr[1] == Reserved.FN then
+    elseif opr[1] == Reserved.FN or opr[1] == Reserved.FN_BODY then
       table.insert(ref_stack, i)
     elseif opr[1] == Reserved.FN_CALL then
       if #ref_stack > 0 then
@@ -888,8 +889,8 @@ function compile_linux_x86_64(ir, outname)
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
-  output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " .. max_buffer_cap .. "\n")
-  output:write("section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n")
+  output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " .. max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
+  output:write("section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -998,9 +999,16 @@ function compile_linux_x86_64(ir, outname)
       output:write("\tmov rax, [args]\n\tmov rax, [rax]\n\tpush rax\n")
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
-    elseif op[1] == Reserved.FN or op[1] == Reserved.RET or op[1] == Reserved.FN_CALL then
+    elseif op[1] == Reserved.FN then
       parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
+    elseif op[1] == Reserved.FN_BODY then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+    elseif op[1] == Reserved.RET then
+      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
+    elseif op[1] == Reserved.FN_CALL then
+      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
