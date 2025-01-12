@@ -255,6 +255,10 @@ local function lexl(line)
     table.insert(src, line:sub(i, i))
   end
 
+  local function unescape_str(str)
+    return str:gsub("\\n", "\n"):gsub("\\t", "\t"):gsub("\\r", "\r"):gsub("\\033", "\027")
+  end
+
 
   i = 1
   local function shift()
@@ -362,7 +366,7 @@ local function lexl(line)
       end
       shift() -- closing "
 
-      table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"):gsub("\\t", "\t"), col = i, line = ln })
+      table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
     elseif src[1] == "'" then
       shift() -- opening "
       local str = ""
