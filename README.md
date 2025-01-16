@@ -7,9 +7,11 @@
 ```
 A stack-oriented, reverse polish notated, compiled and forth-like language that targets x86_64 assembly.
 
-# Dependencies
+# Supported assemblers
 
-- Nasm (Used as runtime)
+- Nasm (default)
+
+- Gas (not fully supported)
 
 # Quickstart
 

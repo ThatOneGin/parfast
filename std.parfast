@@ -11,12 +11,12 @@ macro strlen
   end
 endm
 
-macro st-n-inc
-  dup rld 1 + rst
+macro inc-ptr
+  dup rld 1 + swap rst
 endm
 
-macro st-n-dec
-  dup rld 1 - rst
+macro dec-ptr
+  dup rld 1 - swap rst
 endm
 
 macro true 1 endm

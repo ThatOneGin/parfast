@@ -639,7 +639,7 @@ function parse(tokens)
       shift()
       table.insert(program, argv())
     elseif tokens[1].value == "fn" then
-      if is_fn_declaration or is_macro_declaration then
+      if is_fn_declaration then
         parfast_assert(false, string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
       end
       is_fn_declaration = true
@@ -880,7 +880,7 @@ function run_program(ir)
   end
 end
 
-function compile_linux_x86_64(ir, outname)
+function compile_linux_x86_64_nasm(ir, outname)
   local register_args_table = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"}
 
   local output = io.open(outname .. ".asm", "w+")
@@ -1023,6 +1023,155 @@ function compile_linux_x86_64(ir, outname)
   output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
   --unfortunately i need to write data section here because of strings
   output:write("section .data\n")
+  for i, str in pairs(strings) do
+    output:write(string.format("string_%d: db %s\n", i, hex(str)))
+  end
+  output:close()
+end
+
+function compile_linux_x86_64_gas(ir, outname)
+  local register_args_table = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"}
+
+  local output = io.open(outname .. ".asm", "w+")
+  if not output or output == nil then
+    return nil
+  end
+  output:write(".intel_syntax noprefix\n")
+  output:write(
+    "puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmovb      [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
+  output:write(
+    ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmovb      [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
+
+  output:write(".section .bss\n\targs: .space 1\n\tmbuf: .space " .. max_buffer_cap .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
+  output:write(".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+
+  local strings = {}
+  local extern_fns = {}
+  for i, op in pairs(ir) do
+    output:write(string.format("op_%d:\n", i))
+
+    if op[1] == Reserved.PUSH_INT then
+      output:write(string.format("\tpush %d\n", op[2]))
+    elseif op[1] == Reserved.PUSH_STR then
+      table.insert(strings, op[2])
+      output:write(string.format("\tpush %d\n\tpush string_%d\n", string.len(op[2]), #strings))
+    elseif op[1] == Reserved.CALL then
+      if op[3] > 0 then
+        assert(op[3] <= #register_args_table)
+        for i = 1, op[3] do
+          output:write(string.format("\tpop %s\n", register_args_table[i]))
+        end
+      end
+      output:write(string.format("\tcall %s\n", extern_fns[op[2]]))
+    elseif op[1] == Reserved.EXTERN then
+      output:write(string.format("\t.extern %s\n", op[2]))
+      extern_fns[op[2]] = op[2]
+    elseif op[1] == Reserved.ADD then
+      output:write("\tpop rax\n\tpop rbx\n\tadd rax, rbx\n\tpush rax\n")
+    elseif op[1] == Reserved.SUB then
+      output:write("\tpop rax\n\tpop rbx\n\tsub rbx, rax\n\tpush rbx\n")
+    elseif op[1] == Reserved.MUL then
+       output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
+    elseif op[1] == Reserved.DIV then
+       output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
+    elseif op[1] == Reserved.PUTS then
+      output:write("\tpop rdi\n\tcall puts\n")
+    elseif op[1] == Reserved.IF then
+      output:write("\t/* if */\n")
+    elseif op[1] == Reserved.END then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      if i + 1 ~= op[2] or i ~= op[2] then
+        output:write(string.format("\tjmp op_%d\n", op[2]))
+      end
+    elseif op[1] == Reserved.DUP then
+      output:write("\tpop rax\n\tpush rax\n\tpush rax\n")
+    elseif op[1] == Reserved.EQU then
+      output:write("\tmov rcx, 0\n\tmov rdx, 1\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
+    elseif op[1] == Reserved.NEQ then
+      output:write(
+        "\tmov rcx, 1\n\tmov rdx, 0\n\tpop rax\n\tpop rbx\n\tcmp rax, rbx\n\tcmove rcx, rdx\n\tpush rcx\n")
+    elseif op[1] == Reserved.GT then
+      output:write(
+        "\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovg rcx, rdx\n\tpush rcx\n")
+    elseif op[1] == Reserved.LT then
+      output:write(
+        "\tmov rcx, 0\n\tmov rdx, 1\n\tpop rbx\n\tpop rax\n\tcmp rax, rbx\n\tcmovl rcx, rdx\n\tpush rcx\n")
+    elseif op[1] == Reserved.SWAP then
+      output:write("\tpop rax\n\tpop rbx\n\tpush rax\n\tpush rbx\n")
+    elseif op[1] == Reserved.WHILE then
+      output:write("\t/* while */\n")
+    elseif op[1] == Reserved.DO then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
+    elseif op[1] == Reserved.ELSE then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tjmp op_%d\n", op[2]))
+    elseif op[1] == Reserved.MBUF then
+      output:write("\tpush mbuf\n")
+    elseif op[1] == Reserved.LOAD then
+      output:write("\tpop rax\n\txor rbx, rbx\n\tmov bl, [rax]\n\tpush rbx\n")
+    elseif op[1] == Reserved.STORE then
+      output:write("\tpop rbx\n\tpop rax\n\tmov [rax], bl\n")
+    elseif op[1] == Reserved.DROP then
+      output:write("\tpop rax\n")
+    elseif op[1] == Reserved.ROT then
+      output:write("\tpop rax\n\tpop rbx\n\tpop rcx\n\tpush rbx\n\tpush rax\n\tpush rcx\n")
+    elseif op[1] == Reserved.RST then
+      output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
+    elseif op[1] == Reserved.SYSWRITE then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
+    elseif op[1] == Reserved.SYSEXIT then
+      output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
+    elseif op[1] == Reserved.RLD then
+      output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
+    elseif op[1] == Reserved.THEN then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
+    elseif op[1] == Reserved.ELSEIF then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tjmp op_%d\n", op[2]))
+    elseif op[1] == Reserved.SYSCALL0 then
+      output:write("\tpop rax\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL1 then
+      output:write("\tpop rax\n\tpop rdi\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL2 then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL3 then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL4 then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL5 then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.SYSCALL6 then
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
+    elseif op[1] == Reserved.MEM then
+      output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
+    elseif op[1] == Reserved.MOD then
+      output:write("\tpop rax\n\tpop rbx\n\txor rdx, rdx\n\tdiv rbx\n\tpush rax\n\tpush rdx\n")
+    elseif op[1] == Reserved.ARGC then
+      output:write("\tmov rax, [args]\n\tmov rax, [rax]\n\tpush rax\n")
+    elseif op[1] == Reserved.ARGV then
+      output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
+    elseif op[1] == Reserved.FN then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tjmp op_%d\n", op[2]))
+    elseif op[1] == Reserved.FN_BODY then
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+    elseif op[1] == Reserved.RET then
+      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
+    elseif op[1] == Reserved.FN_CALL then
+      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+    else
+      print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
+      os.exit(1)
+    end
+  end
+
+  output:write(string.format("op_%d:\n", #ir + 1))
+  output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
+  --unfortunately i need to write data section here because of strings
+  output:write(".section .data\n")
   for i, str in pairs(strings) do
     output:write(string.format("string_%d: db %s\n", i, hex(str)))
   end
@@ -1191,11 +1340,12 @@ end
 
 function print_help()
   print("Usage: parfast <input.parfast> -com/-run/-obj/-help\n")
-  print("\t\"-com\" Compile and link generated files with nasm.")
+  print("\t\"-com\" Compile and link generated files with nasm or gas.")
   print("\t\"-run\" Interpret file, can be slower and more limited than compilation.")
-  print("\t\"-obj\" Compile generated file with no linking step.")
+  print("\t\"-c\" Compile generated file with no linking step.")
   print("\ndisable warning flags: \n\t\"-Wunused-data\" Disable default type checking and unused data in stack.")
   print("\nOther options: \n\t\"-silent\" Disable messages of what is being passed to shell, for example: nasm or ld.")
+  print("\t\"-use-gas\" Enable gnu assembler.")
 end
 
 function main()
@@ -1219,12 +1369,24 @@ function main()
   local parsed_ir = get_references(ir)
   
   if flags["-com"] then
-    compile_linux_x86_64(parsed_ir, outname)
-    os.execute("nasm -f elf64 "..outname..".asm")
-    if not flags["-Wunused-data"] then
-      check_unhandled_data(parsed_ir)
+    if flags["-use-gas"] then
+      compile_linux_x86_64_gas(parsed_ir, outname)
+
+      if not flags["-Wunused-data"] then
+        check_unhandled_data(parsed_ir)
+      end
+
+      os.execute("as --64 "..outname..".asm")
+      os.execute(string.format("ld -o %s a.out", outname))
+    else
+      compile_linux_x86_64_nasm(parsed_ir, outname)
+
+      os.execute("nasm -f elf64 "..outname..".asm")
+      if not flags["-Wunused-data"] then
+        check_unhandled_data(parsed_ir)
+      end
+      os.execute(string.format("ld -o %s %s.o", outname, outname))
     end
-    os.execute(string.format("ld -o %s %s.o", outname, outname))
   end
   if flags["-run"] then
     run_program(parsed_ir)
@@ -1233,16 +1395,32 @@ function main()
       check_unhandled_data(parsed_ir)
     end
   end
-  if flags["-obj"] then
-    compile_linux_x86_64(get_references(parsed_ir), outname)
-    os.execute("nasm -f elf64 "..outname..".asm")
-    if not flags["-Wunused-data"] then
-      check_unhandled_data(parsed_ir)
+  if flags["-c"] then
+    if flags["-use-gas"] then
+      compile_linux_x86_64_gas(parsed_ir, outname)
+
+      if not flags["-Wunused-data"] then
+        check_unhandled_data(parsed_ir)
+      end
+
+      os.execute("as --64 "..outname..".asm")
+    else
+      compile_linux_x86_64_nasm(parsed_ir, outname)
+
+      os.execute("nasm -f elf64 "..outname..".asm")
+      if not flags["-Wunused-data"] then
+        check_unhandled_data(parsed_ir)
+      end
     end
   end
   if not flags["-silent"] and not flags["-run"] then
-    print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
-    print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
+    if not flags["-use-gas"] then
+      print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
+      print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
+    else
+      print("\027[33m[1/2]\027[0m as --64 \027[32m"..flags["-file"].."\027[0m")
+      print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m a.out", outname))
+    end
   end
 end
 

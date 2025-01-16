@@ -122,6 +122,7 @@ end
 
 You can define a macro by just doing this:
 
+**macros are part of the language as it don't have any preprocessor**
 
 ```pascal
     //macro <name>
@@ -133,7 +134,21 @@ You can define a macro by just doing this:
     endm
 ```
 
-# 3. misc operands
+## functions
+
+Functions are basically macros, but they don't expand, on the other hand, they require a bit of more assembly to work properly and they are unstable.
+
+```pascal
+  // declaring the function
+  fn <name>
+    <body>
+  end
+
+  // calling the function
+  <arguments> <fn-name>
+```
+
+# 3. stack operations, memory management, modularity and calls
 
 ## swap
 
@@ -149,7 +164,9 @@ Swap two elements from the stack
 
 ## mbuf
 
-While not a operand itself, but a way to access the memory buffer. (currently experimental)
+Mbuf is deprecated, a better way to allocate memory is via [mem](#mem) operand.
+
+"Mbuf: While not a operand itself, but a way to access the global memory buffer".
 
 ## ld
 
@@ -157,7 +174,7 @@ Load a byte at mbuf. It can also dereference a pointer.
 
 ```
 
-mbuf <index> + ld
+ptr <index> + ld
 
 ```
 
@@ -167,13 +184,27 @@ Stores a byte in mbuf or any other pointer.
 
 ```
 
-mbuf <index> + <value> st
+ptr <index> + <value> st
 
 ```
 
 ## rst
 
-Same as [st](#st) but in reverse order.
+Same as [st](#st) but 64 bits.
+
+## rld
+
+Same as [ld](#ld) but 64 bits.
+
+## mem
+
+mem blocks create memory regions based on a global memory buffer ([mbuf](#mbuf)) that grows as the program requires memory.
+
+```pascal
+  mem u64-buffer
+    sizeof-u64 800 *
+  end
+```
 
 ## syscalls
 
@@ -186,7 +217,7 @@ Calls the kernel, the syscalls are labeled with a number in them, that shows the
 
 ## include
 
-Includes a file to your main file.
+Includes an external file.
 
 ```c
 include "std.parfast"
