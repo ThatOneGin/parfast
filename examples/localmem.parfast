@@ -1,0 +1,7 @@
+fn memtest
+  mem a 8 13 * end
+  a rst
+  a rld
+end
+
+"hello\n" memtest 6 swap 1 1 syscall3

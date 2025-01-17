@@ -70,7 +70,8 @@ Reserved = {
   FN       = enum(),
   FN_BODY  = enum(),
   RET      = enum(),
-  FN_CALL  = enum()
+  FN_CALL  = enum(),
+  LOCAL_MEM = enum()
 }
 -- if you allocate, it will grow
 local buffer_offset = 0
@@ -437,6 +438,7 @@ function parse(tokens)
 
   local ip = 1
   local is_fn_declaration = false
+  local fn_declaration_name = ""
   while #tokens > 0 do
     ip = #program + 1
     if tokens[1].value == "puts" then
@@ -455,6 +457,7 @@ function parse(tokens)
       shift()
       table.insert(program, _end())
       is_fn_declaration = false
+      fn_declaration_name = ""
     elseif tokens[1].value == "==" then
       shift()
       table.insert(program, equ())
@@ -597,11 +600,11 @@ function parse(tokens)
     elseif tokens[1].value == "mem" then
       shift()
       local memory = shift()
-      
+
       parfast_assert(memory.type == Tokentype.Ident, string.format("%d:%d Expected memory name to be a word got '%s'. ", memory.line, memory.col, memory.value))
       parfast_assert(macros[memory.value] == nil, string.format("%d:%d Trying to redefine a macro. '%s'", memory.line, memory.col, memory.value))
       parfast_assert(memories[memory.value] == nil, string.format("%d:%d Trying to redefine a memory region. '%s'", memory.line, memory.col, memory.value))
-      
+
       local stack = {}
 
       while tokens[1].value ~= "end" do
@@ -618,17 +621,25 @@ function parse(tokens)
         end
       end
       shift()
-
       parfast_assert(#stack > 0, "Memory allocation expects one integer value. got "..#stack)
-      local mem_to_grow = table.remove(stack)
-      memories[memory.value] = buffer_offset
-      max_buffer_cap = max_buffer_cap + mem_to_grow + buffer_offset
-      buffer_offset = buffer_offset + mem_to_grow
-
+      if not is_fn_declaration then
+        local mem_to_grow = table.remove(stack)
+        memories[memory.value] = buffer_offset
+        max_buffer_cap = max_buffer_cap + mem_to_grow + buffer_offset
+        buffer_offset = buffer_offset + mem_to_grow
+      else
+        local mem_to_grow = table.remove(stack)
+        functions[fn_declaration_name][2][memory.value] = functions[fn_declaration_name][4]
+        functions[fn_declaration_name][3] = functions[fn_declaration_name][3] + mem_to_grow + functions[fn_declaration_name][4]
+        functions[fn_declaration_name][4] = functions[fn_declaration_name][4] + mem_to_grow
+      end
       --ip = ip - 1
     elseif memories[tokens[1].value] ~= nil then
       table.insert(program, mem(memories[tokens[1].value]))
       shift()
+    elseif is_fn_declaration and functions[fn_declaration_name][2][tokens[1].value] ~= nil then
+      shift()
+      table.insert(program, {Reserved.LOCAL_MEM, functions[fn_declaration_name][4]})
     elseif tokens[1].value == "%" then
       table.insert(program, mod())
       shift()
@@ -651,9 +662,10 @@ function parse(tokens)
       parfast_assert(#tokens > 1, "Expected function name.")
       local name = shift()
       parfast_assert(name.type == Tokentype.Ident, "Expected function name to be a word.")
-      functions[name.value] = ip + 1
+      functions[name.value] = {ip + 1, {}, 0, 0}
+      fn_declaration_name = name.value
     elseif functions[tokens[1].value] ~= nil then
-      table.insert(program, fn_call(functions[tokens[1].value]))
+      table.insert(program, fn_call(functions[tokens[1].value][1]))
       shift()
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
@@ -1013,6 +1025,8 @@ function compile_linux_x86_64_nasm(ir, outname)
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
     elseif op[1] == Reserved.FN_CALL then
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+    elseif op[1] == Reserved.LOCAL_MEM then
+      output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush rax\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
