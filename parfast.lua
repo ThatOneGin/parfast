@@ -117,135 +117,49 @@ local strreserved = {
   ["fn"]       = Reserved.FN,
 }
 
-local function pushint(val)
-  return { Reserved.PUSH_INT, val }
-end
-local function pushstr(val)
-  return { Reserved.PUSH_STR, val }
-end
-local function puts()
-  return { Reserved.PUTS }
-end
-local function add()
-  return { Reserved.ADD }
-end
-local function sub()
-  return { Reserved.SUB }
-end
-local function mul()
-  return { Reserved.MUL }
-end
-local function div()
-  return { Reserved.DIV }
-end
-local function mod()
-  return { Reserved.MOD }
-end
-local function _if()
-  return { Reserved.IF }
-end
-local function _end()
-  return { Reserved.END }
-end
-local function equ()
-  return { Reserved.EQU }
-end
-local function neq()
-  return { Reserved.NEQ }
-end
-local function lt()
-  return { Reserved.LT }
-end
-local function gt()
-  return { Reserved.GT }
-end
-local function dup()
-  return { Reserved.DUP }
-end
-local function swp()
-  return { Reserved.SWAP }
-end
-local function _while()
-  return { Reserved.WHILE }
-end
-local function _do()
-  return { Reserved.DO }
-end
-local function _else()
-  return { Reserved.ELSE }
-end
-local function st()
-  return { Reserved.STORE }
-end
-local function ld()
-  return { Reserved.LOAD }
-end
-local function mbuf()
-  return { Reserved.MBUF }
-end
-local function drop()
-  return { Reserved.DROP }
-end
-local function rot()
-  return { Reserved.ROT }
-end
-local function rst()
-  return { Reserved.RST }
-end
-local function rld()
-  return { Reserved.RLD }
-end
-local function extern(extern_fn)
-  return { Reserved.EXTERN, extern_fn }
-end
-local function call_extern(extern_fn, nargs)
-  return { Reserved.CALL, extern_fn , nargs}
-end
-local function _elseif()
-  return { Reserved.ELSEIF }
-end
-local function _then()
-  return { Reserved.THEN }
-end
-local function syscall0()
-  return { Reserved.SYSCALL0 }
-end
-local function syscall1()
-  return { Reserved.SYSCALL1 }
-end
-local function syscall2()
-  return { Reserved.SYSCALL2 }
-end
-local function syscall3()
-  return { Reserved.SYSCALL3 }
-end
-local function syscall4()
-  return { Reserved.SYSCALL4 }
-end
-local function syscall5()
-  return { Reserved.SYSCALL5 }
-end
-local function syscall6()
-  return { Reserved.SYSCALL6 }
-end
-local function mem(size)
-  return { Reserved.MEM, size }
-end
-local function argc()
-  return { Reserved.ARGC }
-end
-local function argv()
-  return { Reserved.ARGV }
-end
-local function fn()
-  return { Reserved.FN }
-end
-local function ret()
-  return { Reserved.RET }
-end
-local function fn_call(ip)
-  return { Reserved.FN_CALL, ip }
-end
+local function pushint(val)										return { Reserved.PUSH_INT, val } end
+local function pushstr(val)										return { Reserved.PUSH_STR, val } end
+local function extern(extern_fn)							return { Reserved.EXTERN, extern_fn } end
+local function call_extern(extern_fn, nargs)	return { Reserved.CALL, extern_fn , nargs } end
+local function fn_call(ip)										return { Reserved.FN_CALL, ip } end
+local function mem(size)											return { Reserved.MEM, size } end
+
+local puts			= { Reserved.PUTS }
+local add				= { Reserved.ADD }
+local sub				= { Reserved.SUB }
+local mul				= { Reserved.MUL }
+local div				= { Reserved.DIV }
+local mod				= { Reserved.MOD }
+local _if				= { Reserved.IF }
+local _end			= { Reserved.END }
+local equ				= { Reserved.EQU }
+local neq				= { Reserved.NEQ }
+local lt				= { Reserved.LT }
+local gt				= { Reserved.GT }
+local dup				= { Reserved.DUP }
+local swap			= { Reserved.SWAP }
+local _while		= { Reserved.WHILE }
+local _do				= { Reserved.DO }
+local _else			= { Reserved.ELSE }
+local store			= { Reserved.STORE }
+local _load			= { Reserved.LOAD }
+local mbuf			= { Reserved.MBUF }
+local drop			= { Reserved.DROP }
+local rot				= { Reserved.ROT }
+local rst				= { Reserved.RST }
+local rld				= { Reserved.RLD }
+local _elseif		= { Reserved.ELSEIF }
+local _then			= { Reserved.THEN }
+local syscall0	= { Reserved.SYSCALL0 }
+local syscall1	= { Reserved.SYSCALL1 }
+local syscall2	= { Reserved.SYSCALL2 }
+local syscall3	= { Reserved.SYSCALL3 }
+local syscall4	= { Reserved.SYSCALL4 }
+local syscall5	= { Reserved.SYSCALL5 }
+local syscall6	= { Reserved.SYSCALL6 }
+local argc			= { Reserved.ARGC }
+local argv			= { Reserved.ARGV }
+local fn				= { Reserved.FN }
 
 local function lexl(line)
   local tokens = {}
@@ -443,66 +357,66 @@ function parse(tokens)
     ip = #program + 1
     if tokens[1].value == "puts" then
       shift()
-      table.insert(program, puts())
+      table.insert(program, puts)
     elseif tokens[1].value == "+" then
       shift()
-      table.insert(program, add())
+      table.insert(program, add)
     elseif tokens[1].value == "-" then
       shift()
-      table.insert(program, sub())
+      table.insert(program, sub)
     elseif tokens[1].value == "if" then
       shift()
-      table.insert(program, _if())
+      table.insert(program, _if)
     elseif tokens[1].value == "end" then
       shift()
-      table.insert(program, _end())
+      table.insert(program, _end)
       is_fn_declaration = false
       fn_declaration_name = ""
     elseif tokens[1].value == "==" then
       shift()
-      table.insert(program, equ())
+      table.insert(program, equ)
     elseif tokens[1].value == "!=" then
       shift()
-      table.insert(program, neq())
+      table.insert(program, neq)
     elseif tokens[1].value == ">" then
       shift()
-      table.insert(program, gt())
+      table.insert(program, gt)
     elseif tokens[1].value == "<" then
       shift()
-      table.insert(program, lt())
+      table.insert(program, lt)
     elseif tokens[1].value == "dup" then
       shift()
-      table.insert(program, dup())
+      table.insert(program, dup)
     elseif tokens[1].value == "swap" then
       shift()
-      table.insert(program, swp())
+      table.insert(program, swap)
     elseif tokens[1].value == "while" then
       shift()
-      table.insert(program, _while())
+      table.insert(program, _while)
     elseif tokens[1].value == "do" then
       shift()
-      table.insert(program, _do())
+      table.insert(program, _do)
     elseif tokens[1].value == "else" then
       shift()
-      table.insert(program, _else())
+      table.insert(program, _else)
     elseif tokens[1].value == "st" then
       shift()
-      table.insert(program, st())
+      table.insert(program, store)
     elseif tokens[1].value == "ld" then
       shift()
-      table.insert(program, ld())
+      table.insert(program, _load)
     elseif tokens[1].value == "rst" then
       shift()
-      table.insert(program, rst())
+      table.insert(program, rst)
     elseif tokens[1].value == "rld" then
       shift()
-      table.insert(program, rld())
+      table.insert(program, rld)
     elseif tokens[1].value == "mbuf" then
       shift()
-      table.insert(program, mbuf())
+      table.insert(program, mbuf)
     elseif tokens[1].value == "drop" then
       shift()
-      table.insert(program, drop())
+      table.insert(program, drop)
     elseif tokens[1].value == "extern" then
       shift()
       table.insert(program, extern(shift().value))
@@ -514,25 +428,25 @@ function parse(tokens)
       table.insert(program, call_extern(name, tonumber(nargs)))
     elseif tokens[1].value == "syscall0" then
       shift()
-      table.insert(program, syscall0())
+      table.insert(program, syscall0)
     elseif tokens[1].value == "syscall1" then
       shift()
-      table.insert(program, syscall1())
+      table.insert(program, syscall1)
     elseif tokens[1].value == "syscall2" then
       shift()
-      table.insert(program, syscall2())
+      table.insert(program, syscall2)
     elseif tokens[1].value == "syscall3" then
       shift()
-      table.insert(program, syscall3())
+      table.insert(program, syscall3)
     elseif tokens[1].value == "syscall4" then
       shift()
-      table.insert(program, syscall4())
+      table.insert(program, syscall4)
     elseif tokens[1].value == "syscall5" then
       shift()
-      table.insert(program, syscall5())
+      table.insert(program, syscall5)
     elseif tokens[1].value == "syscall6" then
       shift()
-      table.insert(program, syscall6())
+      table.insert(program, syscall6)
     elseif tokens[1].value == "macro" then
       shift()
       local name = shift().value
@@ -568,7 +482,6 @@ function parse(tokens)
       local val = shift().value
       table.insert(program, pushstr(val))
     elseif tokens[1].value == "include" then
-      -- todo: security mechanism for recursion
       shift()
       local path = shift()
       if path.type ~= Tokentype.String then
@@ -593,10 +506,10 @@ function parse(tokens)
       file:close()
     elseif tokens[1].value == "elseif" then
       shift()
-      table.insert(program, _elseif())
+      table.insert(program, _elseif)
     elseif tokens[1].value == "then" then
       shift()
-      table.insert(program, _then())
+      table.insert(program, _then)
     elseif tokens[1].value == "mem" then
       shift()
       local memory = shift()
@@ -633,7 +546,6 @@ function parse(tokens)
         functions[fn_declaration_name][3] = functions[fn_declaration_name][3] + mem_to_grow + functions[fn_declaration_name][4]
         functions[fn_declaration_name][4] = functions[fn_declaration_name][4] + mem_to_grow
       end
-      --ip = ip - 1
     elseif memories[tokens[1].value] ~= nil then
       table.insert(program, mem(memories[tokens[1].value]))
       shift()
@@ -641,14 +553,14 @@ function parse(tokens)
       shift()
       table.insert(program, {Reserved.LOCAL_MEM, functions[fn_declaration_name][4]})
     elseif tokens[1].value == "%" then
-      table.insert(program, mod())
+      table.insert(program, mod)
       shift()
     elseif tokens[1].value == "argc" then
       shift()
-      table.insert(program, argc())
+      table.insert(program, argc)
     elseif tokens[1].value == "argv" then
       shift()
-      table.insert(program, argv())
+      table.insert(program, argv)
     elseif tokens[1].value == "fn" then
       if is_fn_declaration then
         parfast_assert(false, string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
@@ -656,7 +568,7 @@ function parse(tokens)
       is_fn_declaration = true
       shift()
       
-      table.insert(program, fn())
+      table.insert(program, fn)
       table.insert(program, {Reserved.FN_BODY})
       
       parfast_assert(#tokens > 1, "Expected function name.")
@@ -673,7 +585,6 @@ function parse(tokens)
     end
 
     ::continue::
-    --ip = ip + 1
   end
 
   return program
