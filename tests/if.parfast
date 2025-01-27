@@ -1,7 +1,7 @@
-32 34 + 65 > if
+if 32 34 + 65 > then
   1 puts
 end
 
-32 34 + 65 < if
+if 32 34 + 65 < then
   1 puts
 end

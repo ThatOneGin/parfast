@@ -4,4 +4,4 @@ while dup 0 > do // while 10 > 0
 
   1 - // decrement by one
 end
-// this actually prints even numbersE
+// this actually prints even numbers

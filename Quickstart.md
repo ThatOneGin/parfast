@@ -1,6 +1,6 @@
 # 1. Basics
 
-Parfast as a stack-oriented, reverse polish notated and forth-like, is a bit complex initially, but with a bit of patience, it can be more readable.
+Parfast as a stack-oriented and also a reverse polish notated language is a bit complex initially, but with a bit of pratice, it can be more readable.
 
 ## Push and drop
 
@@ -136,7 +136,7 @@ You can define a macro by just doing this:
 
 ## functions
 
-Functions are basically macros, but they don't expand, on the other hand, they require a bit of more assembly to work properly and they are unstable.
+Functions are basically macros, but they expand once and then can only be called.
 
 ```pascal
   // declaring the function
@@ -148,7 +148,7 @@ Functions are basically macros, but they don't expand, on the other hand, they r
   <arguments> <fn-name>
 ```
 
-# 3. stack operations, memory management, modularity and calls
+# 3. stack operations, memory management, modularity and system calls
 
 ## swap
 
@@ -162,15 +162,9 @@ Swap two elements from the stack
     swap // stack: [12 32]
 ```
 
-## mbuf
-
-Mbuf is deprecated, a better way to allocate memory is via [mem](#mem) operand.
-
-"Mbuf: While not a operand itself, but a way to access the global memory buffer".
-
 ## ld
 
-Load a byte at mbuf. It can also dereference a pointer.
+Load a byte at a memory buffer. It can also dereference a pointer.
 
 ```
 
@@ -180,7 +174,7 @@ ptr <index> + ld
 
 ## st
 
-Stores a byte in mbuf or any other pointer.
+Stores a byte in a memory buffer or any other pointer.
 
 ```
 
@@ -198,7 +192,7 @@ Same as [ld](#ld) but 64 bits.
 
 ## mem
 
-mem blocks create memory regions based on a global memory buffer ([mbuf](#mbuf)) that grows as the program requires memory.
+mem blocks create memory regions based on a global memory buffer called `mbuf` that grows as the program requires memory.
 
 ```pascal
   mem u64-buffer
@@ -208,7 +202,7 @@ mem blocks create memory regions based on a global memory buffer ([mbuf](#mbuf))
 
 ## syscalls
 
-Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work. E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments. (but all of them need atleast one thing in the stack that will be pushed to the rax register)
+Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work, E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments. (but all of them need atleast one thing in the stack that will be pushed to the rax register)
 
 
 ```c
@@ -217,7 +211,7 @@ Calls the kernel, the syscalls are labeled with a number in them, that shows the
 
 ## include
 
-Includes an external file.
+Includes an external .parfast file.
 
 ```c
 include "std.parfast"
@@ -229,7 +223,7 @@ include "std.parfast"
 
 rotate the stack in this order: c, b, a (stored as a, b, c in the stack), output is: c, a, b
 
-# 4. Calling C from parfast
+# 4. Calling C from parfast (extremely unstable)
 
 ```c
 extern mycfunction // declare as extern

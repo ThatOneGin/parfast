@@ -10,7 +10,7 @@ end
 
 local function parfast_assert(expr, errmsg)
   if not expr then
-    print(errmsg)
+    print("\027[31mERROR\027[0m:" .. errmsg)
     os.exit(1)
   end
 end
@@ -24,53 +24,53 @@ Tokentype = {
 }
 
 Reserved = {
-  PUSH_INT = enum(true),
-  PUSH_STR = enum(),
-  PUTS     = enum(),
-  ADD      = enum(),
-  SUB      = enum(),
-  IF       = enum(),
-  END      = enum(),
-  EQU      = enum(),
-  NEQ      = enum(),
-  LT       = enum(),
-  GT       = enum(),
-  DUP      = enum(),
-  SWAP     = enum(),
-  WHILE    = enum(),
-  DO       = enum(),
-  ELSE     = enum(),
-  MBUF     = enum(),
-  LOAD     = enum(),
-  STORE    = enum(),
-  DROP     = enum(),
-  MACRO    = enum(),
-  INCLUDE  = enum(),
-  MUL      = enum(),
-  DIV      = enum(),
-  ENDM     = enum(),
-  ROT      = enum(),
-  RST      = enum(),
-  RLD      = enum(),
-  EXTERN   = enum(),
-  CALL     = enum(),
-  ELSEIF   = enum(),
-  THEN     = enum(),
-  SYSCALL0 = enum(),
-  SYSCALL1 = enum(),
-  SYSCALL4 = enum(),
-  SYSCALL2 = enum(),
-  SYSCALL6 = enum(),
-  SYSCALL3 = enum(),
-  SYSCALL5 = enum(),
-  MEM      = enum(),
-  MOD      = enum(),
-  ARGC     = enum(),
-  ARGV     = enum(),
-  FN       = enum(),
-  FN_BODY  = enum(),
-  RET      = enum(),
-  FN_CALL  = enum(),
+  PUSH_INT  = enum(true),
+  PUSH_STR  = enum(),
+  PUTS      = enum(),
+  ADD       = enum(),
+  SUB       = enum(),
+  IF        = enum(),
+  END       = enum(),
+  EQU       = enum(),
+  NEQ       = enum(),
+  LT        = enum(),
+  GT        = enum(),
+  DUP       = enum(),
+  SWAP      = enum(),
+  WHILE     = enum(),
+  DO        = enum(),
+  ELSE      = enum(),
+  MBUF      = enum(),
+  LOAD      = enum(),
+  STORE     = enum(),
+  DROP      = enum(),
+  MACRO     = enum(),
+  INCLUDE   = enum(),
+  MUL       = enum(),
+  DIV       = enum(),
+  ENDM      = enum(),
+  ROT       = enum(),
+  RST       = enum(),
+  RLD       = enum(),
+  EXTERN    = enum(),
+  CALL      = enum(),
+  ELSEIF    = enum(),
+  THEN      = enum(),
+  SYSCALL0  = enum(),
+  SYSCALL1  = enum(),
+  SYSCALL4  = enum(),
+  SYSCALL2  = enum(),
+  SYSCALL6  = enum(),
+  SYSCALL3  = enum(),
+  SYSCALL5  = enum(),
+  MEM       = enum(),
+  MOD       = enum(),
+  ARGC      = enum(),
+  ARGV      = enum(),
+  FN        = enum(),
+  FN_BODY   = enum(),
+  RET       = enum(),
+  FN_CALL   = enum(),
   LOCAL_MEM = enum()
 }
 -- if you allocate, it will grow
@@ -117,49 +117,49 @@ local strreserved = {
   ["fn"]       = Reserved.FN,
 }
 
-local function pushint(val)										return { Reserved.PUSH_INT, val } end
-local function pushstr(val)										return { Reserved.PUSH_STR, val } end
-local function extern(extern_fn)							return { Reserved.EXTERN, extern_fn } end
-local function call_extern(extern_fn, nargs)	return { Reserved.CALL, extern_fn , nargs } end
-local function fn_call(ip)										return { Reserved.FN_CALL, ip } end
-local function mem(size)											return { Reserved.MEM, size } end
+local function pushint(val) return { Reserved.PUSH_INT, val } end
+local function pushstr(val) return { Reserved.PUSH_STR, val } end
+local function extern(extern_fn) return { Reserved.EXTERN, extern_fn } end
+local function call_extern(extern_fn, nargs) return { Reserved.CALL, extern_fn, nargs } end
+local function fn_call(ip) return { Reserved.FN_CALL, ip } end
+local function mem(size) return { Reserved.MEM, size } end
 
-local puts			= { Reserved.PUTS }
-local add				= { Reserved.ADD }
-local sub				= { Reserved.SUB }
-local mul				= { Reserved.MUL }
-local div				= { Reserved.DIV }
-local mod				= { Reserved.MOD }
-local _if				= { Reserved.IF }
-local _end			= { Reserved.END }
-local equ				= { Reserved.EQU }
-local neq				= { Reserved.NEQ }
-local lt				= { Reserved.LT }
-local gt				= { Reserved.GT }
-local dup				= { Reserved.DUP }
-local swap			= { Reserved.SWAP }
-local _while		= { Reserved.WHILE }
-local _do				= { Reserved.DO }
-local _else			= { Reserved.ELSE }
-local store			= { Reserved.STORE }
-local _load			= { Reserved.LOAD }
-local mbuf			= { Reserved.MBUF }
-local drop			= { Reserved.DROP }
-local rot				= { Reserved.ROT }
-local rst				= { Reserved.RST }
-local rld				= { Reserved.RLD }
-local _elseif		= { Reserved.ELSEIF }
-local _then			= { Reserved.THEN }
-local syscall0	= { Reserved.SYSCALL0 }
-local syscall1	= { Reserved.SYSCALL1 }
-local syscall2	= { Reserved.SYSCALL2 }
-local syscall3	= { Reserved.SYSCALL3 }
-local syscall4	= { Reserved.SYSCALL4 }
-local syscall5	= { Reserved.SYSCALL5 }
-local syscall6	= { Reserved.SYSCALL6 }
-local argc			= { Reserved.ARGC }
-local argv			= { Reserved.ARGV }
-local fn				= { Reserved.FN }
+local puts     = { Reserved.PUTS }
+local add      = { Reserved.ADD }
+local sub      = { Reserved.SUB }
+local mul      = { Reserved.MUL }
+local div      = { Reserved.DIV }
+local mod      = { Reserved.MOD }
+local _if      = { Reserved.IF }
+local _end     = { Reserved.END }
+local equ      = { Reserved.EQU }
+local neq      = { Reserved.NEQ }
+local lt       = { Reserved.LT }
+local gt       = { Reserved.GT }
+local dup      = { Reserved.DUP }
+local swap     = { Reserved.SWAP }
+local _while   = { Reserved.WHILE }
+local _do      = { Reserved.DO }
+local _else    = { Reserved.ELSE }
+local store    = { Reserved.STORE }
+local _load    = { Reserved.LOAD }
+local mbuf     = { Reserved.MBUF }
+local drop     = { Reserved.DROP }
+local rot      = { Reserved.ROT }
+local rst      = { Reserved.RST }
+local rld      = { Reserved.RLD }
+local _elseif  = { Reserved.ELSEIF }
+local _then    = { Reserved.THEN }
+local syscall0 = { Reserved.SYSCALL0 }
+local syscall1 = { Reserved.SYSCALL1 }
+local syscall2 = { Reserved.SYSCALL2 }
+local syscall3 = { Reserved.SYSCALL3 }
+local syscall4 = { Reserved.SYSCALL4 }
+local syscall5 = { Reserved.SYSCALL5 }
+local syscall6 = { Reserved.SYSCALL6 }
+local argc     = { Reserved.ARGC }
+local argv     = { Reserved.ARGV }
+local fn       = { Reserved.FN }
 
 local function lexl(line)
   local tokens = {}
@@ -214,8 +214,8 @@ local function lexl(line)
 
       local col = i
       while isdigit(src[1]) do
-	      digit = digit .. tostring(src[1])
-	      shift()
+        digit = digit .. tostring(src[1])
+        shift()
       end
 
       table.insert(tokens, { type = Tokentype.Number, value = digit, col = col, line = ln })
@@ -424,7 +424,8 @@ function parse(tokens)
       shift()
       local name = shift().value
       local nargs = shift().value
-      assert(tonumber(nargs) ~= nil, string.format("%d:%d Number of args of a extern call must be a number.", tokens[1].line, tokens[1].col))
+      assert(tonumber(nargs) ~= nil,
+        string.format("%d:%d Number of args of a extern call must be a number.", tokens[1].line, tokens[1].col))
       table.insert(program, call_extern(name, tonumber(nargs)))
     elseif tokens[1].value == "syscall0" then
       shift()
@@ -449,9 +450,15 @@ function parse(tokens)
       table.insert(program, syscall6)
     elseif tokens[1].value == "macro" then
       shift()
-      local name = shift().value
+      local name = shift()
+
+      parfast_assert(name.type == Tokentype.Ident,
+        string.format("%d:%d Expected macro name to be a word.", name.line, name.col))
+      parfast_assert(macros[name.value] == nil,
+        string.format("%d:%d Trying to redefine a macro. '%s'", tokens[1].line, tokens[1].col, name.value))
+
       local macro = {
-        name = name,
+        name = name.value,
         tokens = {}
       }
 
@@ -514,9 +521,12 @@ function parse(tokens)
       shift()
       local memory = shift()
 
-      parfast_assert(memory.type == Tokentype.Ident, string.format("%d:%d Expected memory name to be a word got '%s'. ", memory.line, memory.col, memory.value))
-      parfast_assert(macros[memory.value] == nil, string.format("%d:%d Trying to redefine a macro. '%s'", memory.line, memory.col, memory.value))
-      parfast_assert(memories[memory.value] == nil, string.format("%d:%d Trying to redefine a memory region. '%s'", memory.line, memory.col, memory.value))
+      parfast_assert(memory.type == Tokentype.Ident,
+        string.format("%d:%d Expected memory name to be a word got '%s'. ", memory.line, memory.col, memory.value))
+      parfast_assert(macros[memory.value] == nil,
+        string.format("%d:%d Trying to redefine a macro. '%s'", memory.line, memory.col, memory.value))
+      parfast_assert(memories[memory.value] == nil,
+        string.format("%d:%d Trying to redefine a memory region. '%s'", memory.line, memory.col, memory.value))
 
       local stack = {}
 
@@ -534,7 +544,7 @@ function parse(tokens)
         end
       end
       shift()
-      parfast_assert(#stack > 0, "Memory allocation expects one integer value. got "..#stack)
+      parfast_assert(#stack > 0, "Memory allocation expects one integer value. got " .. #stack)
       if not is_fn_declaration then
         local mem_to_grow = table.remove(stack)
         memories[memory.value] = buffer_offset
@@ -543,7 +553,8 @@ function parse(tokens)
       else
         local mem_to_grow = table.remove(stack)
         functions[fn_declaration_name][2][memory.value] = functions[fn_declaration_name][4]
-        functions[fn_declaration_name][3] = functions[fn_declaration_name][3] + mem_to_grow + functions[fn_declaration_name][4]
+        functions[fn_declaration_name][3] = functions[fn_declaration_name][3] + mem_to_grow +
+            functions[fn_declaration_name][4]
         functions[fn_declaration_name][4] = functions[fn_declaration_name][4] + mem_to_grow
       end
     elseif memories[tokens[1].value] ~= nil then
@@ -551,7 +562,7 @@ function parse(tokens)
       shift()
     elseif is_fn_declaration and functions[fn_declaration_name][2][tokens[1].value] ~= nil then
       shift()
-      table.insert(program, {Reserved.LOCAL_MEM, functions[fn_declaration_name][4]})
+      table.insert(program, { Reserved.LOCAL_MEM, functions[fn_declaration_name][4] })
     elseif tokens[1].value == "%" then
       table.insert(program, mod)
       shift()
@@ -563,18 +574,19 @@ function parse(tokens)
       table.insert(program, argv)
     elseif tokens[1].value == "fn" then
       if is_fn_declaration then
-        parfast_assert(false, string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
+        parfast_assert(false,
+          string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
       end
       is_fn_declaration = true
       shift()
-      
+
       table.insert(program, fn)
-      table.insert(program, {Reserved.FN_BODY})
-      
+      table.insert(program, { Reserved.FN_BODY })
+
       parfast_assert(#tokens > 1, "Expected function name.")
       local name = shift()
       parfast_assert(name.type == Tokentype.Ident, "Expected function name to be a word.")
-      functions[name.value] = {ip + 1, {}, 0, 0}
+      functions[name.value] = { ip + 1, {}, 0, 0 }
       fn_declaration_name = name.value
     elseif functions[tokens[1].value] ~= nil then
       table.insert(program, fn_call(functions[tokens[1].value][1]))
@@ -622,10 +634,10 @@ local function get_references(program)
           os.exit(1)
         end
       elseif program[end_block][1] == Reserved.FN_BODY then
-	program[end_block][2] = i + 1
+        program[end_block][2] = i + 1
         end_block = table.remove(ref_stack)
-	program[end_block][2] = i + 1
-	program[i] = {Reserved.RET, i + 1}
+        program[end_block][2] = i + 1
+        program[i] = { Reserved.RET, i + 1 }
       end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
@@ -717,8 +729,8 @@ function run_program(ir)
   local memory_buffer = {}
 
   -- no need to do syscalls here as this interpretation is only for testing code.
-  
-  for i=1, #ir do
+
+  for i = 1, #ir do
     local op = ir[i]
 
     if op[1] == Reserved.PUSH_INT then
@@ -804,7 +816,7 @@ function run_program(ir)
 end
 
 function compile_linux_x86_64_nasm(ir, outname)
-  local register_args_table = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"}
+  local register_args_table = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" }
 
   local output = io.open(outname .. ".asm", "w+")
   if not output or output == nil then
@@ -816,8 +828,10 @@ function compile_linux_x86_64_nasm(ir, outname)
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
-  output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " .. max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
-  output:write("section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+  output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " ..
+    max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
+  output:write(
+    "section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -845,15 +859,16 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.SUB then
       output:write("\tpop rax\n\tpop rbx\n\tsub rbx, rax\n\tpush rbx\n")
     elseif op[1] == Reserved.MUL then
-       output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
     elseif op[1] == Reserved.DIV then
-       output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
     elseif op[1] == Reserved.PUTS then
       output:write("\tpop rdi\n\tcall puts\n")
     elseif op[1] == Reserved.IF then
       output:write("\t; if\n")
     elseif op[1] == Reserved.END then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
       end
@@ -875,13 +890,13 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.WHILE then
       output:write("\t; while\n")
     elseif op[1] == Reserved.DO then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSE then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
-    elseif op[1] == Reserved.MBUF then
-      output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov bl, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.STORE then
@@ -899,10 +914,12 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
       output:write("\tpop rax\n\tsyscall\n\tpush rax\n")
@@ -927,15 +944,18 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     elseif op[1] == Reserved.FN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.FN_BODY then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.RET then
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
     elseif op[1] == Reserved.FN_CALL then
-      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+      output:write(string.format(
+        "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.LOCAL_MEM then
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush rax\n", op[2]))
     else
@@ -955,7 +975,7 @@ function compile_linux_x86_64_nasm(ir, outname)
 end
 
 function compile_linux_x86_64_gas(ir, outname)
-  local register_args_table = {"rdi", "rsi", "rdx", "rcx", "r8", "r9"}
+  local register_args_table = { "rdi", "rsi", "rdx", "rcx", "r8", "r9" }
 
   local output = io.open(outname .. ".asm", "w+")
   if not output or output == nil then
@@ -967,8 +987,10 @@ function compile_linux_x86_64_gas(ir, outname)
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmovb      [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
-  output:write(".section .bss\n\targs: .space 1\n\tmbuf: .space " .. max_buffer_cap .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
-  output:write(".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+  output:write(".section .bss\n\targs: .space 1\n\tmbuf: .space " ..
+    max_buffer_cap .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
+  output:write(
+    ".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -996,15 +1018,16 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.SUB then
       output:write("\tpop rax\n\tpop rbx\n\tsub rbx, rax\n\tpush rbx\n")
     elseif op[1] == Reserved.MUL then
-       output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rbx\n\tmul rbx\n\tpush rax\n")
     elseif op[1] == Reserved.DIV then
-       output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rbx\n\tdiv rbx\n\tpush rax\n")
     elseif op[1] == Reserved.PUTS then
       output:write("\tpop rdi\n\tcall puts\n")
     elseif op[1] == Reserved.IF then
       output:write("\t/* if */\n")
     elseif op[1] == Reserved.END then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
       end
@@ -1026,13 +1049,13 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.WHILE then
       output:write("\t/* while */\n")
     elseif op[1] == Reserved.DO then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSE then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
-    elseif op[1] == Reserved.MBUF then
-      output:write("\tpush mbuf\n")
     elseif op[1] == Reserved.LOAD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov bl, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.STORE then
@@ -1050,10 +1073,12 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
       output:write("\tpop rax\n\tsyscall\n\tpush rax\n")
@@ -1078,15 +1103,18 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     elseif op[1] == Reserved.FN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.FN_BODY then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: "..outname..".parfast:"..i.." Bug at crossreferencing step.")
+      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+        " Bug at crossreferencing step.")
       output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.RET then
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
     elseif op[1] == Reserved.FN_CALL then
-      output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+      output:write(string.format(
+        "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -1104,7 +1132,7 @@ function compile_linux_x86_64_gas(ir, outname)
 end
 
 function check_unhandled_data(program)
-  local types = {str = enum(true), ptr = enum(), int = enum(), bool = enum()}
+  local types = { str = enum(true), ptr = enum(), int = enum(), bool = enum() }
   local stack = {}
 
   local function type_as_string(typ)
@@ -1140,7 +1168,7 @@ function check_unhandled_data(program)
     elseif program[i][1] == Reserved.ADD or program[i][1] == Reserved.SUB or program[i][1] == Reserved.MUL or program[i][1] == Reserved.DIV or program[i][1] == Reserved.MOD then
       local a = pop()
       local b = pop()
-      
+
       if a == types.ptr and b == types.int then
         push(types.ptr)
       elseif a == types.int and b == types.ptr then
@@ -1188,37 +1216,37 @@ function check_unhandled_data(program)
       pop()
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL1 then
-      parfast_assert(#stack >= 2, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 2, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 2 do
         pop()
       end
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL2 then
-      parfast_assert(#stack >= 3, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 3, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 3 do
         pop()
       end
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL3 then
-      parfast_assert(#stack >= 4, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 4, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 4 do
         pop()
       end
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL4 then
-      parfast_assert(#stack >= 5, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 5, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 5 do
         pop()
       end
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL5 then
-      parfast_assert(#stack >= 6, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 6, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 6 do
         pop()
       end
       push(types.int)
     elseif program[i][1] == Reserved.SYSCALL6 then
-      parfast_assert(#stack >= 7, "Not enough arguments for syscall. "..#stack)
+      parfast_assert(#stack >= 7, "Not enough arguments for syscall. " .. #stack)
       for _ = 1, 7 do
         pop()
       end
@@ -1229,7 +1257,8 @@ function check_unhandled_data(program)
   end
 
   if #stack == 1 then
-    print(string.format("\027[33mWarn\027[0m: Unused data in stack, please drop it. Type: %s", type_as_string(stack[#stack])))
+    print(string.format("\027[33mWarn\027[0m: Unused data in stack, please drop it. Type: %s",
+      type_as_string(stack[#stack])))
   elseif #stack > 1 then
     print("\027[33mWarn\027[0m: Unused data in stack, please drop them. Types: ")
     for i = 1, #stack do
@@ -1274,12 +1303,16 @@ function print_help()
 end
 
 function main()
-  parfast_assert(#arg > 0, "Usage: parfast <input.parfast> -com/-run/-obj/-help\n\n\t\027[31mERROR\027[0m: not enough arguments.")
+  parfast_assert(#arg > 0,
+    "Usage: parfast <input.parfast> -com/-run/-obj/-help\n\n\t\027[31mERROR\027[0m: not enough arguments.")
   local flags = parse_args()
   if flags["-help"] then
     print_help()
     os.exit(0)
   end
+
+  parfast_assert(flags["-com"] or flags["-run"] or flags["-c"],
+    " not enough arguments. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
   parfast_assert(flags["-file"] ~= nil, "\027[31mERROR\027[0m: No input file provided.")
   local input = io.open(flags["-file"], "r")
 
@@ -1292,7 +1325,7 @@ function main()
   local ir = parse(tokens)
   local outname = remove_file_extension(flags["-file"])
   local parsed_ir = get_references(ir)
-  
+
   if flags["-com"] then
     if flags["-use-gas"] then
       compile_linux_x86_64_gas(parsed_ir, outname)
@@ -1301,12 +1334,12 @@ function main()
         check_unhandled_data(parsed_ir)
       end
 
-      os.execute("as --64 "..outname..".asm")
+      os.execute("as --64 " .. outname .. ".asm")
       os.execute(string.format("ld -o %s a.out", outname))
     else
       compile_linux_x86_64_nasm(parsed_ir, outname)
 
-      os.execute("nasm -f elf64 "..outname..".asm")
+      os.execute("nasm -f elf64 " .. outname .. ".asm")
       if not flags["-Wunused-data"] then
         check_unhandled_data(parsed_ir)
       end
@@ -1328,11 +1361,11 @@ function main()
         check_unhandled_data(parsed_ir)
       end
 
-      os.execute("as --64 "..outname..".asm")
+      os.execute("as --64 " .. outname .. ".asm")
     else
       compile_linux_x86_64_nasm(parsed_ir, outname)
 
-      os.execute("nasm -f elf64 "..outname..".asm")
+      os.execute("nasm -f elf64 " .. outname .. ".asm")
       if not flags["-Wunused-data"] then
         check_unhandled_data(parsed_ir)
       end
@@ -1340,10 +1373,10 @@ function main()
   end
   if not flags["-silent"] and not flags["-run"] then
     if not flags["-use-gas"] then
-      print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m"..flags["-file"].."\027[0m")
+      print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m" .. flags["-file"] .. "\027[0m")
       print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
     else
-      print("\027[33m[1/2]\027[0m as --64 \027[32m"..flags["-file"].."\027[0m")
+      print("\027[33m[1/2]\027[0m as --64 \027[32m" .. flags["-file"] .. "\027[0m")
       print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m a.out", outname))
     end
   end

@@ -5,7 +5,7 @@
   -->       @@     @@  @@ @@  @@ @@     @@  @@     @@   @@   
       -->   @@     @@  @@ @@  @@ @@     @@  @@  @@@@    @@   
 ```
-A stack-oriented, reverse polish notated, compiled and forth-like language that targets x86_64 assembly.
+A forth like language that targets x86_64 assembly.
 
 # Supported assemblers
 
@@ -41,10 +41,8 @@ $ ./parfast.lua <input.parfast> -run
 
 # Todos
 
-- [X] Modularity (include files)
+- [ ] stability
+
+- [ ] better error handling
 
 - [ ] self hosting (probably never XD)
-
-- [X] string escape sequence
-
-- [X] vim and emacs support (probably vs code too)
