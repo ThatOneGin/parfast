@@ -1293,7 +1293,7 @@ local function parse_args()
 end
 
 function print_help()
-  print("Usage: parfast <input.parfast> -com/-run/-obj/-help\n")
+  print("Usage: parfast <input.parfast> -com/-run/-c/-help\n")
   print("\t\"-com\" Compile and link generated files with nasm or gas.")
   print("\t\"-run\" Interpret file, can be slower and more limited than compilation.")
   print("\t\"-c\" Compile generated file with no linking step.")
@@ -1304,7 +1304,7 @@ end
 
 function main()
   parfast_assert(#arg > 0,
-    "Usage: parfast <input.parfast> -com/-run/-obj/-help\n\n\t\027[31mERROR\027[0m: not enough arguments.")
+  " not enough arguments. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
   local flags = parse_args()
   if flags["-help"] then
     print_help()
@@ -1312,7 +1312,7 @@ function main()
   end
 
   parfast_assert(flags["-com"] or flags["-run"] or flags["-c"],
-    " not enough arguments. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
+    " missing flag to compile or run file. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
   parfast_assert(flags["-file"] ~= nil, "\027[31mERROR\027[0m: No input file provided.")
   local input = io.open(flags["-file"], "r")
 
