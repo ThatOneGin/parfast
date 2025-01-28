@@ -475,7 +475,7 @@ function parse(tokens)
       table.insert(program, div())
     elseif tokens[1].value == "rot" then
       shift()
-      table.insert(program, rot())
+      table.insert(program, rot)
     elseif macros[tokens[1].value] then
       local macro_name = shift().value
       local expanded_tokens = parse(expand_macro(macro_name))
