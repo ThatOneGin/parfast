@@ -11,6 +11,17 @@ macro strlen
   end
 endm
 
+macro chop-left-by-count // len str count
+  mem count
+	  8
+	end
+
+  dup count swap st
+	+
+	swap count ld -
+	swap
+endm
+
 macro inc-ptr
   dup rld 1 + swap rst
 endm
