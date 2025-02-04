@@ -352,6 +352,12 @@ function parse(tokens)
 
   local ip = 1
   local is_fn_declaration = false
+
+  local is_if_stmt = false
+	local is_else_stmt = false
+  local is_while_stmt = false
+  local is_elseif_stmt = false
+
   local fn_declaration_name = ""
   while #tokens > 0 do
     ip = #program + 1
@@ -365,13 +371,25 @@ function parse(tokens)
       shift()
       table.insert(program, sub)
     elseif tokens[1].value == "if" then
+      is_if_stmt = true
       shift()
       table.insert(program, _if)
     elseif tokens[1].value == "end" then
       shift()
       table.insert(program, _end)
-      is_fn_declaration = false
-      fn_declaration_name = ""
+
+      if is_else_stmt then
+        is_else_stmt = false
+      elseif is_while_stmt then
+        is_while_stmt = false
+      elseif is_if_stmt then
+        is_if_stmt = false
+      elseif is_elseif_stmt then
+        is_elseif_stmt = false
+      else
+        is_fn_declaration = false
+        fn_declaration_name = ""
+      end
     elseif tokens[1].value == "==" then
       shift()
       table.insert(program, equ)
@@ -391,12 +409,14 @@ function parse(tokens)
       shift()
       table.insert(program, swap)
     elseif tokens[1].value == "while" then
+      is_while_stmt = true
       shift()
       table.insert(program, _while)
     elseif tokens[1].value == "do" then
       shift()
       table.insert(program, _do)
     elseif tokens[1].value == "else" then
+      is_else_stmt = true
       shift()
       table.insert(program, _else)
     elseif tokens[1].value == "st" then
@@ -469,10 +489,10 @@ function parse(tokens)
       macros[macro.name] = macro.tokens
     elseif tokens[1].value == "*" then
       shift()
-      table.insert(program, mul())
+      table.insert(program, mul)
     elseif tokens[1].value == "/" then
       shift()
-      table.insert(program, div())
+      table.insert(program, div)
     elseif tokens[1].value == "rot" then
       shift()
       table.insert(program, rot)
@@ -512,6 +532,7 @@ function parse(tokens)
       end
       file:close()
     elseif tokens[1].value == "elseif" then
+      is_elseif_stmt = true
       shift()
       table.insert(program, _elseif)
     elseif tokens[1].value == "then" then

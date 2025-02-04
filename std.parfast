@@ -35,7 +35,7 @@ macro false 0 endm
 macro fprint syswrite drop endm
 macro print stdout fprint endm
 macro eprint stderr fprint endm
-macro 2drop drop drop endm
+macro drop2 drop drop endm
 macro argv-index 8 * argv + rld endm
 macro sizeof_char 1 endm
 macro sizeof_int 4 endm
