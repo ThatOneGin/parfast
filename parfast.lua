@@ -71,11 +71,15 @@ Reserved = {
   FN_BODY   = enum(),
   RET       = enum(),
   FN_CALL   = enum(),
-  LOCAL_MEM = enum()
+  LOCAL_MEM = enum(),
+	ASM       = enum()
 }
+
 -- if you allocate, it will grow
 local buffer_offset = 0
 local max_buffer_cap = 0
+
+local safe_mode = true
 
 local strreserved = {
   ["puts"]     = Reserved.PUTS,
@@ -115,6 +119,7 @@ local strreserved = {
   ["argc"]     = Reserved.ARGC,
   ["arv"]      = Reserved.ARGV,
   ["fn"]       = Reserved.FN,
+	["asm"]      = Reserved.ASM
 }
 
 local function pushint(val) return { Reserved.PUSH_INT, val } end
@@ -123,6 +128,7 @@ local function extern(extern_fn) return { Reserved.EXTERN, extern_fn } end
 local function call_extern(extern_fn, nargs) return { Reserved.CALL, extern_fn, nargs } end
 local function fn_call(ip) return { Reserved.FN_CALL, ip } end
 local function mem(size) return { Reserved.MEM, size } end
+local function asm(code) return { Reserved.ASM, code } end
 
 local puts     = { Reserved.PUTS }
 local add      = { Reserved.ADD }
@@ -612,6 +618,11 @@ function parse(tokens)
     elseif functions[tokens[1].value] ~= nil then
       table.insert(program, fn_call(functions[tokens[1].value][1]))
       shift()
+		elseif tokens[1].value == "asm" then
+			shift()
+			local code = shift()
+			parfast_assert(code.type == Tokentype.String, "Expected asm code to be a string.")
+			table.insert(program, asm(code.value))
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
       os.exit(1)
@@ -979,6 +990,9 @@ function compile_linux_x86_64_nasm(ir, outname)
         "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.LOCAL_MEM then
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush rax\n", op[2]))
+		elseif op[1] == Reserved.ASM then
+			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
+			output:write(string.format("\t%s\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -1135,7 +1149,10 @@ function compile_linux_x86_64_gas(ir, outname)
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
     elseif op[1] == Reserved.FN_CALL then
       output:write(string.format(
-        "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+										 "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+		elseif op[1] == Reserved.ASM then
+			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
+			output:write(string.format("\t%s\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -1194,6 +1211,8 @@ function check_unhandled_data(program)
         push(types.ptr)
       elseif a == types.int and b == types.ptr then
         push(types.ptr)
+			elseif a == types.str or b == types.str then
+				push(types.str)
       else
         push(types.int)
       end
@@ -1318,6 +1337,7 @@ function print_help()
   print("\t\"-com\" Compile and link generated files with nasm or gas.")
   print("\t\"-run\" Interpret file, can be slower and more limited than compilation.")
   print("\t\"-c\" Compile generated file with no linking step.")
+	print("\t\"-unsafe\" enable unsafe mode. (no type checking provided in asm blocks)")
   print("\ndisable warning flags: \n\t\"-Wunused-data\" Disable default type checking and unused data in stack.")
   print("\nOther options: \n\t\"-silent\" Disable messages of what is being passed to shell, for example: nasm or ld.")
   print("\t\"-use-gas\" Enable gnu assembler.")
@@ -1347,6 +1367,10 @@ function main()
   local outname = remove_file_extension(flags["-file"])
   local parsed_ir = get_references(ir)
 
+	if flags["-unsafe"] then
+		safe_mode = false
+  end
+	
   if flags["-com"] then
     if flags["-use-gas"] then
       compile_linux_x86_64_gas(parsed_ir, outname)

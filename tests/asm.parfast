@@ -1,0 +1,17 @@
+asm "
+		push 69
+		pop rdi
+		call puts
+"
+asm "
+		mov rax, 101
+		mov rbx, 121
+		add rax, rbx
+		mov rdi, rax
+		call puts
+"
+asm "
+		; this is a comment at op_3
+		; other comment
+		; let's see if its working one more time
+"
