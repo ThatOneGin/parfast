@@ -570,7 +570,7 @@ function parse(tokens)
           parfast_assert(false, string.format("%d:%d type/operation not supported '%s'", op.line, op.col, op.value))
         end
       end
-      shift()
+			shift()
       parfast_assert(#stack > 0, "Memory allocation expects one integer value. got " .. #stack)
       if not is_fn_declaration then
         local mem_to_grow = table.remove(stack)
@@ -670,7 +670,7 @@ local function get_references(program)
         end_block = table.remove(ref_stack)
         program[end_block][2] = i + 1
         program[i] = { Reserved.RET, i + 1 }
-      end
+			end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
     elseif opr[1] == Reserved.ELSE then
@@ -724,12 +724,7 @@ local function get_references(program)
     elseif opr[1] == Reserved.FN or opr[1] == Reserved.FN_BODY then
       table.insert(ref_stack, i)
     elseif opr[1] == Reserved.FN_CALL then
-      if #ref_stack > 0 then
-        local end_ip = table.remove(ref_stack)
-        if program[end_ip][1] == Reserved.END then
-          program[end_ip][2] = i + 1
-        end
-      elseif #call_stack > 0 then
+      if #call_stack > 0 then
         local ret_ip = table.remove(call_stack)
         if program[ret_ip][1] == Reserved.RET then
           program[ret_ip][2] = i + 1
@@ -1370,7 +1365,7 @@ function main()
 	if flags["-unsafe"] then
 		safe_mode = false
   end
-	
+
   if flags["-com"] then
     if flags["-use-gas"] then
       compile_linux_x86_64_gas(parsed_ir, outname)
