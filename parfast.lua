@@ -281,24 +281,41 @@ local function lexl(line)
       shift() -- opening "
       local str = ""
 
-      while src[1] ~= "\"" and #src > 0 do
+      while src[1] ~= "\"" and #src > 0 and src[1] ~= "\n" do
         str = str .. src[1]
         shift()
       end
+			if src[1] ~= "\"" then
+				parfast_assert(false, "Expected '\"' at same line")
+			end
       shift() -- closing "
 
       table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
     elseif src[1] == "'" then
-      shift() -- opening "
+      shift() -- opening '
       local str = ""
 
-      while src[1] ~= "'" and #src > 0 do
+      while src[1] ~= "'" and #src > 0 and src[1] ~= "\n" do
         str = str .. src[1]
         shift()
       end
-      shift() -- closing "
+			if src[1] ~= "'" then
+				parfast_assert(false, "Expected \"'\" at same line")
+			end
+      shift() -- closing '
 
-      table.insert(tokens, { type = Tokentype.String, value = str:gsub("\\n", "\n"), col = i, line = ln })
+      table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
+		elseif src[1] == "`" then
+      shift() -- opening `
+      local str = ""
+
+      while src[1] ~= "`" and #src > 0 do
+        str = str .. src[1]
+        shift()
+      end
+      shift() -- closing `
+
+      table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })			
     else
       print("Cannot recognize char", src[1])
       os.exit(1)

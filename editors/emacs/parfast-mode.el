@@ -3,9 +3,10 @@
 	(modify-syntax-entry ?/ ". 124b")
 	(modify-syntax-entry ?* ". 23")
 	(modify-syntax-entry ?\n "> b")
-    (modify-syntax-entry ?' "\"")
+  (modify-syntax-entry ?\` "\"")
+  (modify-syntax-entry ?\' "\"")
     (syntax-table))
-  "Syntax table for `parfast-mode'")
+  "Syntax table for `parfast-mode`")
 
 (eval-and-compile
   (defconst parfast-keys
