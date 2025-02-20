@@ -21,16 +21,15 @@ compile file:
 
 ```console
 $ lua parfast.lua <input.parfast> -com
-Commands:
-  [nasm -felf64 <input.asm>]
-  [ld -o <input> <input.o>]
+  [1/2] nasm -f elf64 input.parfast
+  [2/2] ld -o input input.o
 ```
 Or alternatively
 ```console
 $ ./parfast.lua <input.parfast> -com
 Commands:
-  [nasm -felf64 <input.asm>]
-  [ld -o <input> <input.o>]
+  [1/2] nasm -f elf64 input.parfast
+  [2/2] ld -o input input.o
 ```
 
 run file:
