@@ -1,0 +1,8 @@
+fn main
+  |Hello, world!
+	this is a long string
+	\n
+	\t
+	AOOAOAOAOAOAO
+	| 1 1 syscall3 drop
+end

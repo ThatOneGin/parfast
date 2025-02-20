@@ -305,15 +305,15 @@ local function lexl(line)
       shift() -- closing '
 
       table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
-		elseif src[1] == "`" then
-      shift() -- opening `
+		elseif src[1] == "|" then
+      shift() -- opening |
       local str = ""
 
-      while src[1] ~= "`" and #src > 0 do
+      while src[1] ~= "|" and #src > 0 do
         str = str .. src[1]
         shift()
       end
-      shift() -- closing `
+      shift() -- closing |
 
       table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })			
     else
