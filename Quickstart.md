@@ -148,6 +148,26 @@ Functions are basically macros, but they expand once and then can only be called
   <arguments> <fn-name>
 ```
 
+## bindings
+
+bindings are temporary aliases you put at **n** elements on the stack.
+
+```pascal
+  fn chop-str2 // count1 str1 count2 str2
+    bind c1 s1 c2 s2 in
+    // now "abc" has a name and is s1
+    // and "def" has a name and is s2
+      c1 1 -
+      s1 1 +
+      c2 1 -
+      s2 1 +
+    end
+  end
+
+  "abc" "def" chop-str2
+  // now the stack is: c1 - 1, s1 + 1, c2 - 1, s2 + 1
+```
+
 # 3. stack operations, memory management, modularity and system calls
 
 ## swap
@@ -223,7 +243,9 @@ include "std.parfast"
 
 rotate the stack in this order: c, b, a (stored as a, b, c in the stack), output is: c, a, b
 
-# 4. Calling C from parfast (extremely unstable)
+# 4. unsafe
+
+## extern, call
 
 ```c
 extern mycfunction // declare as extern
@@ -237,3 +259,7 @@ extern printf
 "Hello, parfast\n"
 call printf 1
 ```
+
+## inline assembly
+
+the ```asm``` keyword will copy and paste the string at its front and pass to the final .asm file.

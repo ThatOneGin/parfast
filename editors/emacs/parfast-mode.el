@@ -10,7 +10,7 @@
 
 (eval-and-compile
   (defconst parfast-keys
-    '("if" "else" "while" "do" "include" "end" "macro" "endm" "call" "extern" "then" "elseif" "mem" "fn" "asm")))
+    '("if" "else" "while" "do" "include" "end" "macro" "endm" "call" "extern" "then" "elseif" "mem" "fn" "asm" "bind" "in")))
 
 (defconst parfast-h
   `((,(regexp-opt parfast-keys 'symbols) . font-lock-keyword-face)))

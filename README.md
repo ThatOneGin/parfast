@@ -40,8 +40,12 @@ $ ./parfast.lua <input.parfast> -run
 
 # Todos
 
-- [ ] stability
+- [X] type-check
 
-- [ ] better error handling
+- [X] better error handling
+
+- [ ] multi assembler support
+
+- [ ] stability
 
 - [ ] self hosting (probably never XD)

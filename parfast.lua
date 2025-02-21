@@ -72,12 +72,16 @@ Reserved = {
   RET       = enum(),
   FN_CALL   = enum(),
   LOCAL_MEM = enum(),
-	ASM       = enum()
+	ASM       = enum(),
+	ENDBIND   = enum(),
+	IN        = enum(),
+	PUSHBIND  = enum()
 }
 
 -- if you allocate, it will grow
 local buffer_offset = 0
 local max_buffer_cap = 0
+local be_offset = 0
 
 local safe_mode = true
 
@@ -119,7 +123,8 @@ local strreserved = {
   ["argc"]     = Reserved.ARGC,
   ["arv"]      = Reserved.ARGV,
   ["fn"]       = Reserved.FN,
-	["asm"]      = Reserved.ASM
+	["asm"]      = Reserved.ASM,
+	["bind"]       = Reserved.BIND
 }
 
 local function pushint(val) return { Reserved.PUSH_INT, val } end
@@ -349,6 +354,7 @@ end
 
 local memories = {}
 local functions = {}
+local bes = {}
 function parse(tokens)
   local program = {}
   paths[arg[1]] = true
@@ -380,6 +386,7 @@ function parse(tokens)
 	local is_else_stmt = false
   local is_while_stmt = false
   local is_elseif_stmt = false
+	local is_be_stmt = false
 
   local fn_declaration_name = ""
   while #tokens > 0 do
@@ -409,6 +416,10 @@ function parse(tokens)
         is_if_stmt = false
       elseif is_elseif_stmt then
         is_elseif_stmt = false
+			elseif is_be_stmt then
+				is_be_stmt = false
+				be_offset = 0
+				bes = {}
       else
         is_fn_declaration = false
         fn_declaration_name = ""
@@ -640,6 +651,20 @@ function parse(tokens)
 			local code = shift()
 			parfast_assert(code.type == Tokentype.String, "Expected asm code to be a string.")
 			table.insert(program, asm(code.value))
+		elseif tokens[1].value == "bind" then
+			shift()
+
+			while tokens[1].value ~= "in" do
+				bes[tokens[1].value] = be_offset
+				be_offset = be_offset + 8 -- sizeof uintptr_t
+				shift()
+			end
+			parfast_assert(tokens[1].value == "in", "Missing `in` keyword in be-stmt")
+			shift()
+			table.insert(program, {Reserved.IN, be_offset})
+		elseif bes[tokens[1].value] ~= nil then
+			table.insert(program, {Reserved.PUSHBIND, bes[tokens[1].value]})
+			shift()
     else
       print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
       os.exit(1)
@@ -687,6 +712,8 @@ local function get_references(program)
         end_block = table.remove(ref_stack)
         program[end_block][2] = i + 1
         program[i] = { Reserved.RET, i + 1 }
+			elseif program[end_block][1] == Reserved.IN then
+				program[i] = { Reserved.ENDBIND, program[end_block][2]}
 			end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
@@ -749,6 +776,8 @@ local function get_references(program)
       end
     elseif opr[1] == Reserved.RET then
       table.insert(call_stack, i)
+		elseif opr[1] == Reserved.IN then
+			table.insert(ref_stack, i)
     end
   end
 
@@ -1005,6 +1034,16 @@ function compile_linux_x86_64_nasm(ir, outname)
 		elseif op[1] == Reserved.ASM then
 			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
 			output:write(string.format("\t%s\n", op[2]))
+		elseif op[1] == Reserved.IN then
+			output:write(string.format("\tmov rax, [ret_stack]\n\tsub rax, %d\n\tmov [ret_stack], rax\n", op[2]))
+
+			for i = op[2] / 8, 1, -1 do
+				output:write(string.format("\tpop rbx\n\tmov [rax+%d], rbx\n", i * 8 - 8))
+			end
+		elseif op[1] == Reserved.PUSHBIND then
+			output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush QWORD [rax]\n", op[2]))
+		elseif op[1] == Reserved.ENDBIND then
+			output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tmov [ret_stack], rax\n", op[2]))
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
@@ -1165,6 +1204,12 @@ function compile_linux_x86_64_gas(ir, outname)
 		elseif op[1] == Reserved.ASM then
 			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
 			output:write(string.format("\t%s\n", op[2]))
+    elseif op[1] == Reserved.IN then
+      parfast_assert(false, "Operand IN is marked with todo in gas mode. please recompile without -use-gas flag.")
+		elseif op[1] == Reserved.PUSHBIND then
+      parfast_assert(false, "Operand PUSHBIND is marked with todo in gas mode. please recompile without -use-gas flag.")
+		elseif op[1] == Reserved.ENDBIND then
+      parfast_assert(false, "Operand ENDBIN is marked with todo in gas mode. please recompile without -use-gas flag.")
     else
       print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
       os.exit(1)
