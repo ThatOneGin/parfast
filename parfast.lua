@@ -202,7 +202,7 @@ local function lexl(line)
     return char and char == " " or char and char == "\t"
   end
   local function isnewline(char)
-    return char and char == "\n"
+    return char and char == "\n" or char and char == "\r"
   end
 
   while #src > 0 do
@@ -235,7 +235,7 @@ local function lexl(line)
     elseif isnewline(src[1]) then
       shift()
       ln = ln + 1
-      i = 0
+      i = 1
     elseif src[1] == "<" then
       table.insert(tokens, { type = Tokentype.Operator, value = "<", col = i, line = ln })
       shift()
@@ -503,22 +503,30 @@ function parse(tokens)
       shift()
       table.insert(program, syscall6)
     elseif tokens[1].value == "macro" then
+      local lncol = {tokens[1].line, tokens[1].col}
       shift()
       local name = shift()
+
+      parfast_assert(name ~= nil, string.format(
+        "%d:%d Expected token of type Identifier, but got EOF", lncol[1], lncol[2]))
 
       parfast_assert(name.type == Tokentype.Ident,
         string.format("%d:%d Expected macro name to be a word.", name.line, name.col))
       parfast_assert(macros[name.value] == nil,
-        string.format("%d:%d Trying to redefine a macro. '%s'", tokens[1].line, tokens[1].col, name.value))
+        string.format("%d:%d Trying to redefine a macro. '%s'", lncol[1], lncol[2], name.value))
 
       local macro = {
         name = name.value,
         tokens = {}
       }
 
-      while tokens[1].value ~= "endm" and #tokens > 1 do
+      parfast_assert(#tokens > 0,
+        string.format("%d:%d Expected macro body, but got EOF", lncol[1], lncol[2]))
+
+      while tokens[1].value ~= "endm" and #tokens > 0 do
         table.insert(macro.tokens, shift())
       end
+      parfast_assert(tokens[1].value == "endm", string.format("%d:%d Expected `endm` to close macro definition", lncol[1], lncol[2]))
       shift()
       macros[macro.name] = macro.tokens
     elseif tokens[1].value == "*" then
@@ -543,8 +551,12 @@ function parse(tokens)
       local val = shift().value
       table.insert(program, pushstr(val))
     elseif tokens[1].value == "include" then
+      local includepos = {tokens[1].line, tokens[1].col}
       shift()
       local path = shift()
+
+      parfast_assert(path ~= nil, string.format("%d:%d Expected token of type string, but got EOF",
+        includepos[1], includepos[2]))
       if path.type ~= Tokentype.String then
         print("Expected string for filepath, got", path.type)
         os.exit(1)
@@ -573,9 +585,12 @@ function parse(tokens)
       shift()
       table.insert(program, _then)
     elseif tokens[1].value == "mem" then
+      local lncol = {tokens[1].line, tokens[1].col}
       shift()
       local memory = shift()
 
+      parfast_assert(memory ~= nil,
+        string.format("%d:%d Expected region name, but got EOF", lncol[1], lncol[2]))
       parfast_assert(memory.type == Tokentype.Ident,
         string.format("%d:%d Expected memory name to be a word got '%s'. ", memory.line, memory.col, memory.value))
       parfast_assert(macros[memory.value] == nil,
@@ -585,7 +600,10 @@ function parse(tokens)
 
       local stack = {}
 
-      while tokens[1].value ~= "end" do
+      parfast_assert(#tokens > 0,
+        string.format("%d:%d Expected region body, but got EOF", lncol[1], lncol[2]))
+
+      while #tokens > 0 and tokens[1].value ~= "end" do
         local op = shift()
         if op.type == Tokentype.Operator or op.type == Tokentype.Number then
           subset_eval(stack, op)
@@ -598,6 +616,11 @@ function parse(tokens)
           parfast_assert(false, string.format("%d:%d type/operation not supported '%s'", op.line, op.col, op.value))
         end
       end
+
+      parfast_assert(#tokens > 0,
+        string.format("%d:%d Expected `end` to close region definition, but got EOF", lncol[1], lncol[2]))
+      parfast_assert(tokens[1].value == "end",
+        string.format("%d:%d Expected `end` to close region definition, but got EOF", lncol[1], lncol[2]))
 			shift()
       parfast_assert(#stack > 0, "Memory allocation expects one integer value. got " .. #stack)
       if not is_fn_declaration then
@@ -633,14 +656,19 @@ function parse(tokens)
           string.format("%d:%d Nested function declaration is not allowed.", tokens[1].line, tokens[1].col))
       end
       is_fn_declaration = true
+
+      local lncol = {tokens[1].line, tokens[1].col}
       shift()
 
       table.insert(program, fn)
       table.insert(program, { Reserved.FN_BODY })
 
-      parfast_assert(#tokens > 1, "Expected function name.")
+      parfast_assert(#tokens > 0,
+        string.format("%d:%d Expected function name.", lncol[1], lncol[2]))
       local name = shift()
-      parfast_assert(name.type == Tokentype.Ident, "Expected function name to be a word.")
+      parfast_assert(name.type == Tokentype.Ident,
+        string.format("%d:%d Expected function name to be a word.", lncol[1], lncol[2]))
+
       functions[name.value] = { ip + 1, {}, 0, 0 }
       fn_declaration_name = name.value
     elseif functions[tokens[1].value] ~= nil then
@@ -897,7 +925,7 @@ function compile_linux_x86_64_nasm(ir, outname)
   end
   output:write("BITS 64\n")
   output:write(
-    "puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
+    "puts:\n\tmov	 r9, -3689348814741910323\n\tsub  rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
@@ -1069,12 +1097,12 @@ function compile_linux_x86_64_gas(ir, outname)
   end
   output:write(".intel_syntax noprefix\n")
   output:write(
-    "puts:\n\tmov	 r9, -3689348814741910323\n\tsub     rsp, 40\n\tmovb      [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
+    "puts:\n\tmov r9, -3689348814741910323\n\tsub  rsp, 40\n\tmov rax, 10\n\tmov [rsp+31], rax\n\tlea  rcx, [rsp+30]\n")
   output:write(
-    ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmovb      [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
+    ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
   output:write(".section .bss\n\targs: .space 1\n\tmbuf: .space " ..
-    max_buffer_cap .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
+    max_buffer_cap+1 .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
   output:write(
     ".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
