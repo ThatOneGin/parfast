@@ -241,7 +241,7 @@ include "std.parfast"
 
 ## rot
 
-rotate the stack in this order: c, b, a (stored as a, b, c in the stack), output is: c, a, b
+Rotate three elements in the stack, for example, 1 2 3 will become 3 2 1.
 
 # 4. unsafe
 
@@ -263,3 +263,10 @@ call printf 1
 ## inline assembly
 
 the ```asm``` keyword will copy and paste the string at its front and pass to the final .asm file.
+
+```asm
+asm
+|  mov rax, 60
+   xor rdi, rdi
+   syscall|
+```

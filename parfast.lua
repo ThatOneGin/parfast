@@ -10,7 +10,7 @@ end
 
 local function parfast_assert(expr, errmsg)
   if not expr then
-    print("\027[31mERROR\027[0m:" .. errmsg)
+    print("Error: " .. errmsg)
     os.exit(1)
   end
 end
@@ -72,10 +72,10 @@ Reserved = {
   RET       = enum(),
   FN_CALL   = enum(),
   LOCAL_MEM = enum(),
-	ASM       = enum(),
-	ENDBIND   = enum(),
-	IN        = enum(),
-	PUSHBIND  = enum()
+  ASM       = enum(),
+  ENDBIND   = enum(),
+  IN        = enum(),
+  PUSHBIND  = enum()
 }
 
 -- if you allocate, it will grow
@@ -123,8 +123,8 @@ local strreserved = {
   ["argc"]     = Reserved.ARGC,
   ["arv"]      = Reserved.ARGV,
   ["fn"]       = Reserved.FN,
-	["asm"]      = Reserved.ASM,
-	["bind"]       = Reserved.BIND
+  ["asm"]      = Reserved.ASM,
+  ["bind"]     = Reserved.BIND
 }
 
 local function pushint(val) return { Reserved.PUSH_INT, val } end
@@ -184,7 +184,6 @@ local function lexl(line)
   local function unescape_str(str)
     return str:gsub("\\n", "\n"):gsub("\\t", "\t"):gsub("\\r", "\r"):gsub("\\033", "\027")
   end
-
 
   i = 1
   local function shift()
@@ -290,9 +289,9 @@ local function lexl(line)
         str = str .. src[1]
         shift()
       end
-			if src[1] ~= "\"" then
-				parfast_assert(false, "Expected '\"' at same line")
-			end
+      if src[1] ~= "\"" then
+        parfast_assert(false, "Expected '\"' at same line")
+      end
       shift() -- closing "
 
       table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
@@ -304,13 +303,13 @@ local function lexl(line)
         str = str .. src[1]
         shift()
       end
-			if src[1] ~= "'" then
-				parfast_assert(false, "Expected \"'\" at same line")
-			end
+      if src[1] ~= "'" then
+        parfast_assert(false, "Expected \"'\" at same line")
+      end
       shift() -- closing '
 
       table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
-		elseif src[1] == "|" then
+    elseif src[1] == "|" then
       shift() -- opening |
       local str = ""
 
@@ -320,10 +319,9 @@ local function lexl(line)
       end
       shift() -- closing |
 
-      table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })			
+      table.insert(tokens, { type = Tokentype.String, value = unescape_str(str), col = i, line = ln })
     else
-      print("Cannot recognize char", src[1])
-      os.exit(1)
+      parfast_assert(false, string.format("Cannot recognize char", src[1]))
     end
   end
 
@@ -383,10 +381,10 @@ function parse(tokens)
   local is_fn_declaration = false
 
   local is_if_stmt = false
-	local is_else_stmt = false
+  local is_else_stmt = false
   local is_while_stmt = false
   local is_elseif_stmt = false
-	local is_be_stmt = false
+  local is_be_stmt = false
 
   local fn_declaration_name = ""
   while #tokens > 0 do
@@ -416,10 +414,10 @@ function parse(tokens)
         is_if_stmt = false
       elseif is_elseif_stmt then
         is_elseif_stmt = false
-			elseif is_be_stmt then
-				is_be_stmt = false
-				be_offset = 0
-				bes = {}
+      elseif is_be_stmt then
+        is_be_stmt = false
+        be_offset = 0
+        bes = {}
       else
         is_fn_declaration = false
         fn_declaration_name = ""
@@ -503,7 +501,7 @@ function parse(tokens)
       shift()
       table.insert(program, syscall6)
     elseif tokens[1].value == "macro" then
-      local lncol = {tokens[1].line, tokens[1].col}
+      local lncol = { tokens[1].line, tokens[1].col }
       shift()
       local name = shift()
 
@@ -526,7 +524,8 @@ function parse(tokens)
       while tokens[1].value ~= "endm" and #tokens > 0 do
         table.insert(macro.tokens, shift())
       end
-      parfast_assert(tokens[1].value == "endm", string.format("%d:%d Expected `endm` to close macro definition", lncol[1], lncol[2]))
+      parfast_assert(tokens[1].value == "endm",
+        string.format("%d:%d Expected `endm` to close macro definition", lncol[1], lncol[2]))
       shift()
       macros[macro.name] = macro.tokens
     elseif tokens[1].value == "*" then
@@ -551,7 +550,7 @@ function parse(tokens)
       local val = shift().value
       table.insert(program, pushstr(val))
     elseif tokens[1].value == "include" then
-      local includepos = {tokens[1].line, tokens[1].col}
+      local includepos = { tokens[1].line, tokens[1].col }
       shift()
       local path = shift()
 
@@ -585,7 +584,7 @@ function parse(tokens)
       shift()
       table.insert(program, _then)
     elseif tokens[1].value == "mem" then
-      local lncol = {tokens[1].line, tokens[1].col}
+      local lncol = { tokens[1].line, tokens[1].col }
       shift()
       local memory = shift()
 
@@ -621,7 +620,7 @@ function parse(tokens)
         string.format("%d:%d Expected `end` to close region definition, but got EOF", lncol[1], lncol[2]))
       parfast_assert(tokens[1].value == "end",
         string.format("%d:%d Expected `end` to close region definition, but got EOF", lncol[1], lncol[2]))
-			shift()
+      shift()
       parfast_assert(#stack > 0, "Memory allocation expects one integer value. got " .. #stack)
       if not is_fn_declaration then
         local mem_to_grow = table.remove(stack)
@@ -657,7 +656,7 @@ function parse(tokens)
       end
       is_fn_declaration = true
 
-      local lncol = {tokens[1].line, tokens[1].col}
+      local lncol = { tokens[1].line, tokens[1].col }
       shift()
 
       table.insert(program, fn)
@@ -674,28 +673,27 @@ function parse(tokens)
     elseif functions[tokens[1].value] ~= nil then
       table.insert(program, fn_call(functions[tokens[1].value][1]))
       shift()
-		elseif tokens[1].value == "asm" then
-			shift()
-			local code = shift()
-			parfast_assert(code.type == Tokentype.String, "Expected asm code to be a string.")
-			table.insert(program, asm(code.value))
-		elseif tokens[1].value == "bind" then
-			shift()
+    elseif tokens[1].value == "asm" then
+      shift()
+      local code = shift()
+      parfast_assert(code.type == Tokentype.String, "Expected asm code to be a string.")
+      table.insert(program, asm(code.value))
+    elseif tokens[1].value == "bind" then
+      shift()
 
-			while tokens[1].value ~= "in" do
-				bes[tokens[1].value] = be_offset
-				be_offset = be_offset + 8 -- sizeof uintptr_t
-				shift()
-			end
-			parfast_assert(tokens[1].value == "in", "Missing `in` keyword in be-stmt")
-			shift()
-			table.insert(program, {Reserved.IN, be_offset})
-		elseif bes[tokens[1].value] ~= nil then
-			table.insert(program, {Reserved.PUSHBIND, bes[tokens[1].value]})
-			shift()
+      while tokens[1].value ~= "in" do
+        bes[tokens[1].value] = be_offset
+        be_offset = be_offset + 8 -- sizeof uintptr_t
+        shift()
+      end
+      parfast_assert(tokens[1].value == "in", "Missing `in` keyword in be-stmt")
+      shift()
+      table.insert(program, { Reserved.IN, be_offset })
+    elseif bes[tokens[1].value] ~= nil then
+      table.insert(program, { Reserved.PUSHBIND, bes[tokens[1].value] })
+      shift()
     else
-      print(string.format("\027[31mERROR\027[0m:Unknown keyword %s", tokens[1].value))
-      os.exit(1)
+      parfast_assert(false, string.format("Unknown keyword %s", tokens[1].value))
     end
 
     ::continue::
@@ -740,9 +738,9 @@ local function get_references(program)
         end_block = table.remove(ref_stack)
         program[end_block][2] = i + 1
         program[i] = { Reserved.RET, i + 1 }
-			elseif program[end_block][1] == Reserved.IN then
-				program[i] = { Reserved.ENDBIND, program[end_block][2]}
-			end
+      elseif program[end_block][1] == Reserved.IN then
+        program[i] = { Reserved.ENDBIND, program[end_block][2] }
+      end
     elseif opr[1] == Reserved.WHILE then
       table.insert(ref_stack, i)
     elseif opr[1] == Reserved.ELSE then
@@ -804,8 +802,8 @@ local function get_references(program)
       end
     elseif opr[1] == Reserved.RET then
       table.insert(call_stack, i)
-		elseif opr[1] == Reserved.IN then
-			table.insert(ref_stack, i)
+    elseif opr[1] == Reserved.IN then
+      table.insert(ref_stack, i)
     end
   end
 
@@ -968,7 +966,7 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.IF then
       output:write("\t; if\n")
     elseif op[1] == Reserved.END then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
@@ -991,11 +989,11 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.WHILE then
       output:write("\t; while\n")
     elseif op[1] == Reserved.DO then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSE then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.LOAD then
@@ -1015,11 +1013,11 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
@@ -1045,11 +1043,11 @@ function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     elseif op[1] == Reserved.FN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.FN_BODY then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.RET then
@@ -1059,22 +1057,22 @@ function compile_linux_x86_64_nasm(ir, outname)
         "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.LOCAL_MEM then
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush rax\n", op[2]))
-		elseif op[1] == Reserved.ASM then
-			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
-			output:write(string.format("\t%s\n", op[2]))
-		elseif op[1] == Reserved.IN then
-			output:write(string.format("\tmov rax, [ret_stack]\n\tsub rax, %d\n\tmov [ret_stack], rax\n", op[2]))
+    elseif op[1] == Reserved.ASM then
+      parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
+      output:write(string.format("\t%s\n", op[2]))
+    elseif op[1] == Reserved.IN then
+      output:write(string.format("\tmov rax, [ret_stack]\n\tsub rax, %d\n\tmov [ret_stack], rax\n", op[2]))
 
-			for i = op[2] / 8, 1, -1 do
-				output:write(string.format("\tpop rbx\n\tmov [rax+%d], rbx\n", i * 8 - 8))
-			end
-		elseif op[1] == Reserved.PUSHBIND then
-			output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush QWORD [rax]\n", op[2]))
-		elseif op[1] == Reserved.ENDBIND then
-			output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tmov [ret_stack], rax\n", op[2]))
+      for i = op[2] / 8, 1, -1 do
+        output:write(string.format("\tpop rbx\n\tmov [rax+%d], rbx\n", i * 8 - 8))
+      end
+    elseif op[1] == Reserved.PUSHBIND then
+      output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush QWORD [rax]\n", op[2]))
+    elseif op[1] == Reserved.ENDBIND then
+      output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tmov [ret_stack], rax\n", op[2]))
     else
-      print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
-      os.exit(1)
+      parfast_assert(false, string.format(
+      "\n\tOperand not recognized or shouldn't be reachable.", op[1]))
     end
   end
 
@@ -1102,7 +1100,7 @@ function compile_linux_x86_64_gas(ir, outname)
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
   output:write(".section .bss\n\targs: .space 1\n\tmbuf: .space " ..
-    max_buffer_cap+1 .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
+    max_buffer_cap + 1 .. "\n\tret_stack: .space 1026\n\tstack_end: .space 1\n")
   output:write(
     ".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
@@ -1140,7 +1138,7 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.IF then
       output:write("\t/* if */\n")
     elseif op[1] == Reserved.END then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       if i + 1 ~= op[2] or i ~= op[2] then
         output:write(string.format("\tjmp op_%d\n", op[2]))
@@ -1163,11 +1161,11 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.WHILE then
       output:write("\t/* while */\n")
     elseif op[1] == Reserved.DO then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSE then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.LOAD then
@@ -1187,11 +1185,11 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tpop rax\n\ttest rax, rax\n\tjz op_%d\n", op[2]))
     elseif op[1] == Reserved.ELSEIF then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.SYSCALL0 then
@@ -1217,30 +1215,30 @@ function compile_linux_x86_64_gas(ir, outname)
     elseif op[1] == Reserved.ARGV then
       output:write("\tmov rax, [args]\n\tadd rax, 8\n\tpush rax\n")
     elseif op[1] == Reserved.FN then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tjmp op_%d\n", op[2]))
     elseif op[1] == Reserved.FN_BODY then
-      parfast_assert(#op == 2, "\027[31mERROR\027[0m: " .. outname .. ".parfast:" .. i ..
+      parfast_assert(#op == 2, outname .. ".parfast:" .. i ..
         " Bug at crossreferencing step.")
       output:write(string.format("\tsub rsp, %d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
     elseif op[1] == Reserved.RET then
       output:write(string.format("\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tadd rsp, %d\n\tret\n", op[2]))
     elseif op[1] == Reserved.FN_CALL then
       output:write(string.format(
-										 "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
-		elseif op[1] == Reserved.ASM then
-			parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
-			output:write(string.format("\t%s\n", op[2]))
+        "\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n", op[2]))
+    elseif op[1] == Reserved.ASM then
+      parfast_assert(safe_mode == false, "Cannot use inline assembly in 'safe' mode. Please recompile with -unsafe flag.")
+      output:write(string.format("\t%s\n", op[2]))
     elseif op[1] == Reserved.IN then
       parfast_assert(false, "Operand IN is marked with todo in gas mode. please recompile without -use-gas flag.")
-		elseif op[1] == Reserved.PUSHBIND then
+    elseif op[1] == Reserved.PUSHBIND then
       parfast_assert(false, "Operand PUSHBIND is marked with todo in gas mode. please recompile without -use-gas flag.")
-		elseif op[1] == Reserved.ENDBIND then
+    elseif op[1] == Reserved.ENDBIND then
       parfast_assert(false, "Operand ENDBIN is marked with todo in gas mode. please recompile without -use-gas flag.")
     else
-      print("\27[31;4mError\27[0m:\n\tOperand not recognized or shouldn't be reachable.", op[1])
-      os.exit(1)
+      parfast_assert(false, string.format(
+        "\n\tOperand not recognized or shouldn't be reachable.", op[1]))
     end
   end
 
@@ -1296,8 +1294,8 @@ function check_unhandled_data(program)
         push(types.ptr)
       elseif a == types.int and b == types.ptr then
         push(types.ptr)
-			elseif a == types.str or b == types.str then
-				push(types.str)
+      elseif a == types.str or b == types.str then
+        push(types.str)
       else
         push(types.int)
       end
@@ -1395,8 +1393,7 @@ end
 
 -- Extension should be .parfast
 local function remove_file_extension(filepath)
-  local sfilepath = string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
-  return sfilepath
+  return string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
 end
 
 local function parse_args()
@@ -1419,18 +1416,18 @@ end
 
 function print_help()
   print("Usage: parfast <input.parfast> -com/-run/-c/-help\n")
-  print("\t\"-com\" Compile and link generated files with nasm or gas.")
+  print("\t\"-com\" Compile and link generated files with Nasm or Gas.")
   print("\t\"-run\" Interpret file, can be slower and more limited than compilation.")
   print("\t\"-c\" Compile generated file with no linking step.")
-	print("\t\"-unsafe\" enable unsafe mode. (no type checking provided in asm blocks)")
+  print("\t\"-unsafe\" enable unsafe mode. (no type checking provided in asm blocks)")
   print("\ndisable warning flags: \n\t\"-Wunused-data\" Disable default type checking and unused data in stack.")
   print("\nOther options: \n\t\"-silent\" Disable messages of what is being passed to shell, for example: nasm or ld.")
-  print("\t\"-use-gas\" Enable gnu assembler.")
+  print("\t\"-use-gas\" Use the GNU Assembler instead of Nasm")
 end
 
 function main()
   parfast_assert(#arg > 0,
-  " not enough arguments. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
+    " not enough arguments. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
   local flags = parse_args()
   if flags["-help"] then
     print_help()
@@ -1439,7 +1436,7 @@ function main()
 
   parfast_assert(flags["-com"] or flags["-run"] or flags["-c"],
     " missing flag to compile or run file. \n\tUsage: parfast <input.parfast> -com/-run/-c/-help")
-  parfast_assert(flags["-file"] ~= nil, "\027[31mERROR\027[0m: No input file provided.")
+  parfast_assert(flags["-file"] ~= nil, " No input file provided.")
   local input = io.open(flags["-file"], "r")
 
   if not input or input == nil then
@@ -1452,8 +1449,8 @@ function main()
   local outname = remove_file_extension(flags["-file"])
   local parsed_ir = get_references(ir)
 
-	if flags["-unsafe"] then
-		safe_mode = false
+  if flags["-unsafe"] then
+    safe_mode = false
   end
 
   if flags["-com"] then
@@ -1487,7 +1484,7 @@ function main()
     if flags["-use-gas"] then
       compile_linux_x86_64_gas(parsed_ir, outname)
 
-      if not flags["-Wunused-data"] then
+      if not flags["-Wunused-data"] and not flags["-unsafe"] then
         check_unhandled_data(parsed_ir)
       end
 
@@ -1496,18 +1493,18 @@ function main()
       compile_linux_x86_64_nasm(parsed_ir, outname)
 
       os.execute("nasm -f elf64 " .. outname .. ".asm")
-      if not flags["-Wunused-data"] then
+      if not flags["-Wunused-data"] and not flags["-unsafe"] then
         check_unhandled_data(parsed_ir)
       end
     end
   end
   if not flags["-silent"] and not flags["-run"] then
     if not flags["-use-gas"] then
-      print("\027[33m[1/2]\027[0m nasm -f elf64 \027[32m" .. flags["-file"] .. "\027[0m")
-      print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m %s.o", outname, outname))
+      print("[1/2] nasm -f elf64 " .. flags["-file"])
+      print(string.format("[2/2] ld -o %s %s.o", outname, outname))
     else
-      print("\027[33m[1/2]\027[0m as --64 \027[32m" .. flags["-file"] .. "\027[0m")
-      print(string.format("\027[32m[2/2]\027[0m ld -o \027[32m%s\027[0m a.out", outname))
+      print("[1/2] as --64 " .. flags["-file"])
+      print(string.format("[2/2] ld -o %s a.out", outname))
     end
   end
 end

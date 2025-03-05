@@ -13,29 +13,29 @@ endm
 
 macro chop-left-by-count // len str count
   mem count
-	  8
-	end
+    8
+  end
 
   dup count swap st
-	+
-	swap count ld -
-	swap
+  +
+  swap count ld -
+  swap
 endm
 
 macro chop-string-left // count string
   swap 1 - swap
-	1 +
+  1 +
 endm
 
 macro split-str-in // count string delim
   swap drop
   mem delim
-	  1
-	end
- 	ld delim rst
- 	while dup ld delim rld != do
- 	  chop-string-left
- 	end
+    1
+  end
+   ld delim rst
+  while dup ld delim rld != do
+    chop-string-left
+  end
 endm
 
 macro inc-ptr
