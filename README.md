@@ -11,6 +11,8 @@ A forth like language that targets x86_64 assembly.
 
 - Nasm (default)
 
+- Fasm
+
 - Gas (not fully supported)
 
 # Quickstart
