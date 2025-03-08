@@ -17,3 +17,6 @@ asm |
 		; other comment
 		; let's see if its working one more time
 |
+
+fn main
+end

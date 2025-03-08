@@ -4,4 +4,6 @@ fn memtest
   a rld
 end
 
-"hello\n" memtest 6 swap 1 1 syscall3
+fn main
+  "hello\n" memtest 6 swap 1 1 syscall3 drop
+end

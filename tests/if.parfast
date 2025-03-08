@@ -1,7 +1,9 @@
-if 32 34 + 65 > then
-  1 puts
-end
+fn main
+  if 32 34 + 65 > then
+    1 puts
+  end
 
-if 32 34 + 65 < then
-  1 puts
+  if 32 34 + 65 < then
+    1 puts
+  end
 end

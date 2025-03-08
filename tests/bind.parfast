@@ -1,5 +1,7 @@
-1 2 3
-bind a b c in
-  a b c
+fn main
+  1 2 3
+  bind a b c in
+    a b c
+  end
+  puts puts puts
 end
-puts puts puts

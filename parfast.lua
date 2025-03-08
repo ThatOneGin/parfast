@@ -927,8 +927,8 @@ function compile_linux_x86_64_nasm(ir, outname)
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
 
-  output:write(
-    "section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+  -- output:write(
+  --   "section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -1074,8 +1074,17 @@ function compile_linux_x86_64_nasm(ir, outname)
     end
   end
 
+  output:write(
+    "section .text\n\tglobal _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+  parfast_assert(functions["main"] ~= nil, "Undefined reference to function main.")
+  output:write(
+    string.format(
+      "main:\n\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n",
+      functions["main"][1]))
+
   output:write(string.format("op_%d:\n", #ir + 1))
   output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
+
   output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " ..
     max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
 
@@ -1098,8 +1107,6 @@ function compile_linux_x86_64_gas(ir, outname)
     "puts:\n\tmov r9, -3689348814741910323\n\tsub  rsp, 40\n\tmov rax, 10\n\tmov [rsp+31], rax\n\tlea  rcx, [rsp+30]\n")
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
-  output:write(
-    ".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -1238,7 +1245,13 @@ function compile_linux_x86_64_gas(ir, outname)
         "\n\tOperand not recognized or shouldn't be reachable.", op[1]))
     end
   end
-
+  output:write(
+    ".section .text\n\t.globl _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+  parfast_assert(functions["main"] ~= nil, "Undefined reference to main.")
+  output:write(
+    string.format(
+      "main:\n\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n",
+      functions["main"][1]))
   output:write(string.format("op_%d:\n", #ir + 1))
   output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
   output:write(".section .bss\n\targs: .space 8\n\tmbuf: .space " ..
@@ -1262,9 +1275,6 @@ function compile_linux_x86_64_fasm(ir, outname)
     "puts:\n\tmov	 r9, -3689348814741910323\n\tsub  rsp, 40\n\tmov  BYTE [rsp+31], 10\n\tlea  rcx, [rsp+30]\n")
   output:write(
     ".L2:\n\tmov  rax, rdi\n\tlea  r8, [rsp+32]\n\tmul  r9\n\tmov  rax, rdi\n\tsub  r8, rcx\n\tshr  rdx, 3\n\tlea  rsi, [rdx+rdx*4]\n\tadd  rsi, rsi\n\tsub  rax, rsi\n\tadd  eax, 48\n\tmov  BYTE [rcx], al\n\tmov  rax, rdi\n\tmov  rdi, rdx\n\tmov  rdx, rcx\n\tsub  rcx, 1\n\tcmp  rax, 9\n\tja   .L2\n\tlea  rax, [rsp+32]\n\tmov  edi, 1\n\tsub  rdx, rax\n\tlea  rsi, [rsp+32+rdx]\n\tmov  rdx, r8\n\tmov  rax, 1\n\tsyscall\n\tadd  rsp, 40\n\tret\n")
-
-  output:write(
-    "segment readable executable\n\tentry _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
 
   local strings = {}
   local extern_fns = {}
@@ -1410,6 +1420,14 @@ function compile_linux_x86_64_fasm(ir, outname)
     end
   end
 
+  output:write(
+    "segment readable executable\n\tentry _start\n\n_start:\n\tmov [args], rsp\n\tmov rax, stack_end\n\tmov [ret_stack], rax\n")
+
+  parfast_assert(functions["main"] ~= nil, "Undefined reference to main.")
+  output:write(
+    string.format(
+      "main:\n\tmov rax, rsp\n\tmov rsp, [ret_stack]\n\tcall op_%d\n\tmov [ret_stack], rsp\n\tmov rsp, rax\n",
+      functions["main"][1]))
   output:write(string.format("op_%d:\n", #ir + 1))
   output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
 
@@ -1448,7 +1466,10 @@ function check_unhandled_data(program)
     end
   end
 
-  for i = 1, #program do
+  local main_ip = functions["main"]
+  parfast_assert(main_ip ~= nil, "Undefined reference to main.")
+
+  for i = main_ip[1], #program do
     if program[i][1] == Reserved.PUSH_INT then
       push(types.int)
     elseif program[i][1] == Reserved.PUSH_STR then
@@ -1578,8 +1599,8 @@ local function parse_args()
     if flag_or_file:sub(1, 1) == "-" then
       flags[flag_or_file] = true
       if flag_or_file == "-m" then
-        flag_or_file = arg[i+1]
-        i = i+1
+        flag_or_file = arg[i + 1]
+        i = i + 1
         fasm_mem_cap = tonumber(flag_or_file)
         parfast_assert(fasm_mem_cap, "Expected -m argument to be a number.")
       end

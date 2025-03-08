@@ -13,7 +13,7 @@ A forth like language that targets x86_64 assembly.
 
 - Fasm
 
-- Gas (not fully supported)
+- Gas (unstable)
 
 # Quickstart
 

@@ -1,7 +1,9 @@
-10 // push 10 to the stack
-while dup 0 > do // while 10 > 0
-  dup dup + puts // (x + x) print
+fn main
+  10 // push 10 to the stack
+  while dup 0 > do // while 10 > 0
+    dup dup + puts // (x + x) print
 
-  1 - // decrement by one
+    1 - // decrement by one
+  end
+  // this actually prints even numbers
 end
-// this actually prints even numbers
