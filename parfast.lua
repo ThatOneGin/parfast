@@ -273,8 +273,21 @@ local function lexl(line)
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "+", col = i, line = ln })
     elseif src[1] == "-" then
-      shift()
-      table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
+			if not isdigit(src[2]) then
+				shift()
+				table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
+			else
+				shift()
+        local digit = "-"
+
+        local col = i
+        while isdigit(src[1]) and #src > 0 do
+          digit = digit .. tostring(src[1])
+          shift()
+        end
+
+        table.insert(tokens, { type = Tokentype.Number, value = digit, col = col, line = ln })
+			end
     elseif src[1] == "*" then
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "*", col = i, line = ln })
