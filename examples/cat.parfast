@@ -9,7 +9,7 @@ mem fd // buffer to store file descriptor and close it later.
   8
 end
 
-fn main
+fn main with
   if argc 2 < then
     "Error: no input file." 1 1 syscall3
     1 60 syscall1 drop

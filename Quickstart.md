@@ -140,7 +140,7 @@ Functions are basically macros, but they expand once and then can only be called
 
 ```pascal
   // declaring the function
-  fn <name>
+  fn <name> <args> with
     <body>
   end
 
@@ -153,7 +153,7 @@ Functions are basically macros, but they expand once and then can only be called
 bindings are temporary aliases you put at **n** elements on the stack.
 
 ```pascal
-  fn chop-str2 // count1 str1 count2 str2
+  fn chop-str2 int str int str with // count1 str1 count2 str2
     bind c1 s1 c2 s2 in
     // now "abc" has a name and is s1
     // and "def" has a name and is s2
@@ -184,11 +184,12 @@ Swap two elements from the stack
 
 ## ld
 
-Load a byte at a memory buffer. It can also dereference a pointer.
+Dereference a pointer on the top of the stack
+but in 8 bits.
 
 ```
 
-ptr <index> + ld
+ptr ld
 
 ```
 
@@ -208,7 +209,7 @@ Same as [st](#st) but 64 bits.
 
 ## rld
 
-Same as [ld](#ld) but 64 bits.
+Same as [ld](#ld) but 64 in bits.
 
 ## mem
 

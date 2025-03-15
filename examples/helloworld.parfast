@@ -1,5 +1,5 @@
 include "std.parfast"
 
-fn main
+fn main with
   "Hello, world!\n" print
 end

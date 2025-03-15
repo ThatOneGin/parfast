@@ -1,4 +1,4 @@
-fn main
+fn main with
   if 10 12 > then
     10 puts
   else

@@ -6,6 +6,6 @@ macro add
   hello 3 + puts // connecting 2 macros
 end
 
-fn main
+fn main with
   add
 end

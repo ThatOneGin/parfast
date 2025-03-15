@@ -18,5 +18,5 @@ asm |
 		; let's see if its working one more time
 |
 
-fn main
+fn main with
 end

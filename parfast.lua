@@ -75,7 +75,8 @@ Reserved = {
   ASM       = enum(),
   ENDBIND   = enum(),
   IN        = enum(),
-  PUSHBIND  = enum()
+  PUSHBIND  = enum(),
+  WITH      = enum()
 }
 
 -- if you allocate, it will grow
@@ -131,7 +132,7 @@ local function pushint(val) return { Reserved.PUSH_INT, val } end
 local function pushstr(val) return { Reserved.PUSH_STR, val } end
 local function extern(extern_fn) return { Reserved.EXTERN, extern_fn } end
 local function call_extern(extern_fn, nargs) return { Reserved.CALL, extern_fn, nargs } end
-local function fn_call(ip) return { Reserved.FN_CALL, ip } end
+local function fn_call(ip, name) return { Reserved.FN_CALL, ip, name } end
 local function mem(size) return { Reserved.MEM, size } end
 local function asm(code) return { Reserved.ASM, code } end
 
@@ -486,11 +487,11 @@ function parse(tokens)
       shift()
       table.insert(program, extern(shift().value))
     elseif tokens[1].value == "call" then
-      shift()
+      local report = shift()
       local name = shift().value
       local nargs = shift().value
       assert(tonumber(nargs) ~= nil,
-        string.format("%d:%d Number of args of a extern call must be a number.", tokens[1].line, tokens[1].col))
+        string.format("%d:%d Number of args of a extern call must be a number.", report.line, report.col))
       table.insert(program, call_extern(name, tonumber(nargs)))
     elseif tokens[1].value == "syscall0" then
       shift()
@@ -670,6 +671,7 @@ function parse(tokens)
       is_fn_declaration = true
 
       local lncol = { tokens[1].line, tokens[1].col }
+      local types = {}
       shift()
 
       table.insert(program, fn)
@@ -681,10 +683,16 @@ function parse(tokens)
       parfast_assert(name.type == Tokentype.Ident,
         string.format("%d:%d Expected function name to be a word.", lncol[1], lncol[2]))
 
-      functions[name.value] = { ip + 1, {}, 0, 0 }
+      while #tokens > 0 and tokens[1].value ~= "with" do
+        table.insert(types, shift().value)
+      end
+      local with = shift()
+      parfast_assert(with ~= nil, "Expected `with` keyword to end function declaration.")
+
+      functions[name.value] = { ip + 1, {}, 0, 0, types}
       fn_declaration_name = name.value
     elseif functions[tokens[1].value] ~= nil then
-      table.insert(program, fn_call(functions[tokens[1].value][1]))
+      table.insert(program, fn_call(functions[tokens[1].value][1], tokens[1].value))
       shift()
     elseif tokens[1].value == "asm" then
       shift()
@@ -694,14 +702,16 @@ function parse(tokens)
     elseif tokens[1].value == "bind" then
       shift()
 
+			local be_count = 0
       while tokens[1].value ~= "in" do
         bes[tokens[1].value] = be_offset
         be_offset = be_offset + 8 -- sizeof uintptr_t
         shift()
+				be_count = be_count + 1
       end
       parfast_assert(tokens[1].value == "in", "Missing `in` keyword in be-stmt")
       shift()
-      table.insert(program, { Reserved.IN, be_offset })
+      table.insert(program, { Reserved.IN, be_offset, be_count })
     elseif bes[tokens[1].value] ~= nil then
       table.insert(program, { Reserved.PUSHBIND, bes[tokens[1].value] })
       shift()
@@ -743,8 +753,7 @@ local function get_references(program)
           program[i][2] = i + 1
           program[end_block][2] = i + 1
         else
-          print("'then' can only be used in if-elseif-else blocks")
-          os.exit(1)
+          parfast_assert(false, "'then' can only be used in if-elseif-else blocks")
         end
       elseif program[end_block][1] == Reserved.FN_BODY then
         program[end_block][2] = i + 1
@@ -760,8 +769,7 @@ local function get_references(program)
       local if_location = table.remove(ref_stack)
 
       if program[if_location][1] ~= Reserved.THEN then
-        print("'else' can only be used in if-elseif-then blocks.")
-        os.exit(1)
+        parfast_assert(false, "'else' can only be used in if-elseif-then blocks.")
       end
       local pre_if = program[if_location][2]
 
@@ -773,8 +781,7 @@ local function get_references(program)
         program[if_location][2] = i + 1
         table.insert(ref_stack, i)
       else
-        print("'else' is not closing 'then' block preceded by if-elseif.")
-        os.exit(1)
+        parfast_assert(false, "'else' is not closing 'then' block preceded by if-elseif.")
       end
     elseif opr[1] == Reserved.DO then
       local while_ref = table.remove(ref_stack)
@@ -784,8 +791,7 @@ local function get_references(program)
       local then_ip = table.remove(ref_stack)
 
       if program[then_ip][1] ~= Reserved.THEN then
-        print("'elseif' can only close 'then' blocks.")
-        os.exit(1)
+        parfast_assert(false, "'elseif' can only close 'then' blocks.")
       end
       local p_ip = program[then_ip][2]
 
@@ -797,8 +803,7 @@ local function get_references(program)
         program[then_ip][2] = i + 1
         table.insert(ref_stack, i)
       else
-        print("'elseif' can only close 'if-then' blocks.")
-        os.exit(1)
+        parfast_assert(false, "'elseif' can only close 'if-then' blocks.")
       end
     elseif opr[1] == Reserved.THEN then
       local then_ref = table.remove(ref_stack)
@@ -1459,13 +1464,24 @@ function check_unhandled_data(program)
 
   local function type_as_string(typ)
     if typ == types.str then
-      return "Str"
+      return "str"
     elseif typ == types.ptr then
-      return "Ptr"
+      return "ptr"
     elseif typ == types.int then
-      return "Int"
+      return "int"
     elseif typ == types.bool then
-      return "Bool"
+      return "bool"
+    end
+  end
+
+  local function stack_start_match(types, start)
+    if #stack < #types then
+      parfast_assert(false, string.format("Expected %d arguments but got %d.", #types, #stack))
+    end
+    for i = start, #types do
+      if type_as_string(stack[i]) ~= types[i] then
+        parfast_assert(false, string.format("Type mismatch %s vs %s.", type_as_string(stack[i]), types[i]))
+      end
     end
   end
 
@@ -1476,6 +1492,8 @@ function check_unhandled_data(program)
   local function pop()
     if #stack > 0 then
       return table.remove(stack)
+    else
+      parfast_assert(false, "Stack underflow.")
     end
   end
 
@@ -1483,6 +1501,10 @@ function check_unhandled_data(program)
   parfast_assert(main_ip ~= nil, "Undefined reference to main.")
 
   for i = main_ip[1], #program do
+    ::continue::
+    if i > #program then
+      break
+    end
     if program[i][1] == Reserved.PUSH_INT then
       push(types.int)
     elseif program[i][1] == Reserved.PUSH_STR then
@@ -1578,16 +1600,31 @@ function check_unhandled_data(program)
         pop()
       end
       push(types.int)
-    elseif program[i][1] == Reserved.FN or Reserved.FN_CALL or program[i][1] == Reserved.END then
+    elseif program[i][1] == Reserved.FN or program[i][1] == Reserved.RET then
       i = program[i][2]
+			goto continue
+    elseif program[i][1] == Reserved.FN_CALL then
+      local fn = functions[program[i][3]]
+      parfast_assert(fn ~= nil, "Attempt to call undefined function.")
+      if #stack < #fn[5] then
+        parfast_assert(false,
+          string.format("Not enough arguments for function call, expected %d arguments but got %d.", #fn[5], #stack))
+      end
+      stack_start_match(fn[5], #stack - #fn[5] + 1)
+      i = program[i][2]
+			goto continue
+		elseif program[i][1] == Reserved.IN then
+			for _ = 1, program[i][3] do
+				pop()
+			end
     end
   end
 
   if #stack == 1 then
-    print(string.format("\027[33mWarn\027[0m: Unused data in stack, please drop it. Type: %s",
-      type_as_string(stack[#stack])))
+    print(string.format("Warn: Unused data in stack, please drop it. Type: %s",
+      type_as_string(stack[1])))
   elseif #stack > 1 then
-    print("\027[33mWarn\027[0m: Unused data in stack, please drop them. Types: ")
+    print("Warn: Unused data in stack, please drop them. Types: ")
     for i = 1, #stack do
       io.write(i .. ": " .. type_as_string(stack[i]) .. " ")
     end

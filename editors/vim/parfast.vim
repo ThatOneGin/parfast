@@ -5,7 +5,7 @@ if exists("b:current_syntax")
   finish
 endif
 
-syn keyword parfastKeyword if else while include end endm macro extern call elseif then do mem fn asm bind in
+syn keyword parfastKeyword if else while include end endm macro extern call elseif then do mem fn asm bind in with
 
 syn match parfastComment "//.*$"
 
