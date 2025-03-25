@@ -1461,6 +1461,7 @@ end
 function check_unhandled_data(program)
   local types = { str = enum(true), ptr = enum(), int = enum(), bool = enum() }
   local stack = {}
+	local call_stack = {}
 
   local function type_as_string(typ)
     if typ == types.str then
@@ -1497,14 +1498,18 @@ function check_unhandled_data(program)
     end
   end
 
+  local max_recursion_loop = 2000
+  local current_recursion_loop = 0
   local main_ip = functions["main"]
   parfast_assert(main_ip ~= nil, "Undefined reference to main.")
 
-  for i = main_ip[1], #program do
-    ::continue::
-    if i > #program then
+	table.insert(call_stack, main_ip[1])
+	local i = main_ip[1]
+	while i < #program do
+    if i >= #program then
       break
     end
+
     if program[i][1] == Reserved.PUSH_INT then
       push(types.int)
     elseif program[i][1] == Reserved.PUSH_STR then
@@ -1515,7 +1520,6 @@ function check_unhandled_data(program)
     elseif program[i][1] == Reserved.ADD or program[i][1] == Reserved.SUB or program[i][1] == Reserved.MUL or program[i][1] == Reserved.DIV or program[i][1] == Reserved.MOD then
       local a = pop()
       local b = pop()
-
       if a == types.ptr and b == types.int then
         push(types.ptr)
       elseif a == types.int and b == types.ptr then
@@ -1600,24 +1604,44 @@ function check_unhandled_data(program)
         pop()
       end
       push(types.int)
-    elseif program[i][1] == Reserved.FN or program[i][1] == Reserved.RET then
+    elseif program[i][1] == Reserved.FN then
       i = program[i][2]
-			goto continue
+		elseif program[i][1] == Reserved.RET then
+			parfast_assert(#call_stack > 0, "Unreachable state at type checking.")
+			local ret_ip = tonumber(table.remove(call_stack))
+			parfast_assert(ret_ip ~= nil, "Unreachable state at type checking.")
+			i = ret_ip-1
     elseif program[i][1] == Reserved.FN_CALL then
+      -- this checks if the program has encountered a recursion
+      -- because this function don't check context, only types.
+      if current_recursion_loop >= max_recursion_loop then
+        i = i + 1
+        current_recursion_loop = 0
+        goto continue
+      else
+        current_recursion_loop = current_recursion_loop + 1
+      end
+
+			table.insert(call_stack, i+1)
       local fn = functions[program[i][3]]
       parfast_assert(fn ~= nil, "Attempt to call undefined function.")
+
       if #stack < #fn[5] then
         parfast_assert(false,
           string.format("Not enough arguments for function call, expected %d arguments but got %d.", #fn[5], #stack))
       end
+
       stack_start_match(fn[5], #stack - #fn[5] + 1)
       i = program[i][2]
-			goto continue
 		elseif program[i][1] == Reserved.IN then
 			for _ = 1, program[i][3] do
 				pop()
 			end
+    elseif program[i][1] == Reserved.LOCAL_MEM then
+      push(types.ptr)
     end
+    ::continue::
+		i = i + 1
   end
 
   if #stack == 1 then

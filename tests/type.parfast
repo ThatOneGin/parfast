@@ -1,0 +1,26 @@
+// this is in here because the type-checker has some
+// difficult time checking function
+fn print-add int int with
+  +
+end
+
+// this would cause an infinite loop
+// because there was no protection
+fn recursive int with
+  if dup 0 != then
+    1 - dup puts recursive
+	end
+end
+
+fn main with
+  // count to 0 recursively
+  10 recursive drop
+
+  // count back with loop
+  1 while dup 10 < do
+    dup puts
+    1 +
+  end
+
+  23 90 print-add puts
+end
