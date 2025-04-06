@@ -274,11 +274,11 @@ local function lexl(line)
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "+", col = i, line = ln })
     elseif src[1] == "-" then
-			if not isdigit(src[2]) then
-				shift()
-				table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
-			else
-				shift()
+      if not isdigit(src[2]) then
+        shift()
+        table.insert(tokens, { type = Tokentype.Operator, value = "-", col = i, line = ln })
+      else
+        shift()
         local digit = "-"
 
         local col = i
@@ -288,7 +288,7 @@ local function lexl(line)
         end
 
         table.insert(tokens, { type = Tokentype.Number, value = digit, col = col, line = ln })
-			end
+      end
     elseif src[1] == "*" then
       shift()
       table.insert(tokens, { type = Tokentype.Operator, value = "*", col = i, line = ln })
@@ -689,7 +689,7 @@ function parse(tokens)
       local with = shift()
       parfast_assert(with ~= nil, "Expected `with` keyword to end function declaration.")
 
-      functions[name.value] = { ip + 1, {}, 0, 0, types}
+      functions[name.value] = { ip + 1, {}, 0, 0, types }
       fn_declaration_name = name.value
     elseif functions[tokens[1].value] ~= nil then
       table.insert(program, fn_call(functions[tokens[1].value][1], tokens[1].value))
@@ -702,12 +702,12 @@ function parse(tokens)
     elseif tokens[1].value == "bind" then
       shift()
 
-			local be_count = 0
+      local be_count = 0
       while tokens[1].value ~= "in" do
         bes[tokens[1].value] = be_offset
         be_offset = be_offset + 8 -- sizeof uintptr_t
         shift()
-				be_count = be_count + 1
+        be_count = be_count + 1
       end
       parfast_assert(tokens[1].value == "in", "Missing `in` keyword in be-stmt")
       shift()
@@ -1461,7 +1461,7 @@ end
 function check_unhandled_data(program)
   local types = { str = enum(true), ptr = enum(), int = enum(), bool = enum() }
   local stack = {}
-	local call_stack = {}
+  local call_stack = {}
 
   local function type_as_string(typ)
     if typ == types.str then
@@ -1503,9 +1503,9 @@ function check_unhandled_data(program)
   local main_ip = functions["main"]
   parfast_assert(main_ip ~= nil, "Undefined reference to main.")
 
-	table.insert(call_stack, main_ip[1])
-	local i = main_ip[1]
-	while i < #program do
+  table.insert(call_stack, main_ip[1])
+  local i = main_ip[1]
+  while i < #program do
     if i >= #program then
       break
     end
@@ -1606,11 +1606,11 @@ function check_unhandled_data(program)
       push(types.int)
     elseif program[i][1] == Reserved.FN then
       i = program[i][2]
-		elseif program[i][1] == Reserved.RET then
-			parfast_assert(#call_stack > 0, "Unreachable state at type checking.")
-			local ret_ip = tonumber(table.remove(call_stack))
-			parfast_assert(ret_ip ~= nil, "Unreachable state at type checking.")
-			i = ret_ip-1
+    elseif program[i][1] == Reserved.RET then
+      parfast_assert(#call_stack > 0, "Unreachable state at type checking.")
+      local ret_ip = tonumber(table.remove(call_stack))
+      parfast_assert(ret_ip ~= nil, "Unreachable state at type checking.")
+      i = ret_ip - 1
     elseif program[i][1] == Reserved.FN_CALL then
       -- this checks if the program has encountered a recursion
       -- because this function don't check context, only types.
@@ -1622,7 +1622,7 @@ function check_unhandled_data(program)
         current_recursion_loop = current_recursion_loop + 1
       end
 
-			table.insert(call_stack, i+1)
+      table.insert(call_stack, i + 1)
       local fn = functions[program[i][3]]
       parfast_assert(fn ~= nil, "Attempt to call undefined function.")
 
@@ -1633,15 +1633,15 @@ function check_unhandled_data(program)
 
       stack_start_match(fn[5], #stack - #fn[5] + 1)
       i = program[i][2]
-		elseif program[i][1] == Reserved.IN then
-			for _ = 1, program[i][3] do
-				pop()
-			end
+    elseif program[i][1] == Reserved.IN then
+      for _ = 1, program[i][3] do
+        pop()
+      end
     elseif program[i][1] == Reserved.LOCAL_MEM then
       push(types.ptr)
     end
     ::continue::
-		i = i + 1
+    i = i + 1
   end
 
   if #stack == 1 then
