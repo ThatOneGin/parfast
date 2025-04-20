@@ -1,7 +1,3 @@
-local Reserved = require("src.opdef")
-local utils = require("src.utils")
-local parfast_assert = utils.parfast_assert
-
 Tokentype = {
   Number   = enum(true),
   Ident    = enum(),
@@ -220,5 +216,3 @@ local function lexl(line)
 
   return tokens
 end
-
-return lexl

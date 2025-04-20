@@ -1,7 +1,3 @@
-local parfast_assert = require("src.utils").parfast_assert
-local parser = require("src.parser")
-local Reserved = require("src.opdef")
-
 local function check_unhandled_data(program)
   local types = { str = enum(true), ptr = enum(), int = enum(), bool = enum() }
   local stack = {}
@@ -44,7 +40,7 @@ local function check_unhandled_data(program)
 
   local max_recursion_loop = 2000
   local current_recursion_loop = 0
-  local main_ip = parser.functions["main"]
+  local main_ip = functions["main"]
   parfast_assert(main_ip ~= nil, "Undefined reference to main.")
 
   table.insert(call_stack, main_ip[1])
@@ -167,7 +163,7 @@ local function check_unhandled_data(program)
       end
 
       table.insert(call_stack, i + 1)
-      local fn = parser.functions[program[i][3]]
+      local fn = functions[program[i][3]]
       parfast_assert(fn ~= nil, "Attempt to call undefined function.")
 
       if #stack < #fn[5] then
@@ -199,5 +195,3 @@ local function check_unhandled_data(program)
     print("\n")
   end
 end
-
-return check_unhandled_data

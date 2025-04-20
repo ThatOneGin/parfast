@@ -25,10 +25,3 @@ end
 local function bool_to_number(value)
   return value and 1 or 0
 end
-
-return {
-  enum = enum,
-  parfast_assert = parfast_assert,
-  hex = hex,
-  bool_to_number = bool_to_number
-}

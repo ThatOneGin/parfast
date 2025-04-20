@@ -1,9 +1,3 @@
-local Reserved = require("src.opdef")
-local parser = require("src.parser")
-local utils = require("src.utils")
-local parfast_assert = utils.parfast_assert
-local hex = utils.hex
-
 local safe_mode = true
 
 local function switch_mode()
@@ -183,7 +177,7 @@ local function compile_linux_x86_64_nasm(ir, outname)
   output:write("\tmov rax, 60\n\tmov rdi, 0\n\tsyscall\n")
 
   output:write("section .bss\n\targs: resq 1\n\tmbuf: resb " ..
-    parser.max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
+    max_buffer_cap .. "\n\tret_stack: resq 1026\n\tstack_end: resq 1\n")
 
   output:write("section .data\n")
   for i, str in pairs(strings) do
@@ -363,15 +357,9 @@ local function compile_linux_x86_64_fasm(ir, outname)
 
   output:write("segment readable writeable\n")
   output:write("\targs: rq 1\n\tmbuf: rb " ..
-    parser.max_buffer_cap .. "\n\tret_stack: rq 1026\n\tstack_end: rq 1\n")
+    max_buffer_cap .. "\n\tret_stack: rq 1026\n\tstack_end: rq 1\n")
   for i, str in pairs(strings) do
     output:write(string.format("string_%d: db %s\n", i, hex(str)))
   end
   output:close()
 end
-
-return {
-  compile_linux_x86_64_nasm = compile_linux_x86_64_nasm,
-  compile_linux_x86_64_fasm = compile_linux_x86_64_fasm,
-  switch_mode = switch_mode
-}

@@ -36,11 +36,11 @@ Commands:
 
 Required tools:
 
+  - lua
+
   - luac
 
-  - GNU make
-
-In linux, just run `make` and it will procude a file named `parfast` which is the compiler. But unfortunately it won't work well on Windows.
+In linux, just run `./build.lua` and it will procude a file named `parfast` which is the compiler. But unfortunately it won't work well on Windows.
 
 # Todos
 

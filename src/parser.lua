@@ -1,8 +1,3 @@
-local Reserved = require("src.opdef")
-local lexl = require("src.lex")
-local utils = require("src.utils")
-local parfast_assert = utils.parfast_assert
-
 local function pushint(val) return { Reserved.PUSH_INT, val } end
 local function pushstr(val) return { Reserved.PUSH_STR, val } end
 local function extern(extern_fn) return { Reserved.EXTERN, extern_fn } end
@@ -47,8 +42,6 @@ local syscall6 = { Reserved.SYSCALL6 }
 local argc     = { Reserved.ARGC }
 local argv     = { Reserved.ARGV }
 local fn       = { Reserved.FN }
-
-
 
 local buffer_offset = 0
 local max_buffer_cap = 0
@@ -537,14 +530,3 @@ function get_references(program)
 
   return program
 end
-
-return {
-  parse = parse,
-  get_references = get_references,
-  macros = macros,
-  paths = paths,
-  memories = memories,
-  functions = functions,
-  be_offset = be_offset,
-  max_buffer_cap = max_buffer_cap
-}

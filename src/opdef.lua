@@ -53,5 +53,3 @@ Reserved = {
   PUSHBIND  = enum(),
   WITH      = enum()
 }
-
-return Reserved

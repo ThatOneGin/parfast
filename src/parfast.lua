@@ -1,10 +1,3 @@
-local parfast_assert = require("src.utils").parfast_assert
-local lexl = require("src.lex")
-local parser = require("src.parser")
-local parse = parser.parse
-local check_unhandled_data = require("src.checker")
-local compile_defs = require("src.codegen")
-
 -- Extension should be .parfast
 local function remove_file_extension(filepath)
   return string.gsub(filepath, "%.([^\\/%.]-)%.?$", "")
@@ -72,11 +65,11 @@ function main()
   local parsed_ir = get_references(ir)
 
   if flags["-unsafe"] then
-    compile_defs.switch_mode()
+    switch_mode()
   end
   if flags["-com"] then
     if flags["-use-fasm"] then
-      compile_defs.compile_linux_x86_64_fasm(parsed_ir, outname)
+     compile_linux_x86_64_fasm(parsed_ir, outname)
 
       if not flags["-Wunused-data"] then
         check_unhandled_data(parsed_ir)
@@ -84,7 +77,7 @@ function main()
 
       os.execute(string.format("fasm -m %d %s.asm", fasm_mem_cap, outname))
     else
-      compile_defs.compile_linux_x86_64_nasm(parsed_ir, outname)
+      compile_linux_x86_64_nasm(parsed_ir, outname)
 
       os.execute("nasm -f elf64 " .. outname .. ".asm")
       if not flags["-Wunused-data"] then
@@ -94,7 +87,7 @@ function main()
     end
   end
   if flags["-c"] then
-    compile_defs.compile_linux_x86_64_nasm(parsed_ir, outname)
+    compile_linux_x86_64_nasm(parsed_ir, outname)
 
     os.execute("nasm -f elf64 " .. outname .. ".asm")
     if not flags["-Wunused-data"] and not flags["-unsafe"] then
