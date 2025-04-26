@@ -418,6 +418,18 @@ function parse(tokens)
     elseif bes[tokens[1].value] ~= nil then
       table.insert(program, { Reserved.PUSHBIND, bes[tokens[1].value] })
       shift()
+    elseif tokens[1].value == "castptr" then
+      shift()
+      table.insert(program, { Reserved.CAST_PTR })
+    elseif tokens[1].value == "castint" then
+      shift()
+      table.insert(program, { Reserved.CAST_INT })
+    elseif tokens[1].value == "castbool" then
+      shift()
+      table.insert(program, { Reserved.CAST_BOOL })
+    elseif tokens[1].value == "caststr" then
+      shift()
+      table.insert(program, { Reserved.CAST_STR })
     else
       parfast_assert(false, string.format("Unknown keyword %s", tokens[1].value))
     end

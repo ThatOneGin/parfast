@@ -96,10 +96,6 @@ local function compile_linux_x86_64_nasm(ir, outname)
       output:write("\tpop rax\n\tpop rbx\n\tpop rcx\n\tpush rbx\n\tpush rax\n\tpush rcx\n")
     elseif op[1] == Reserved.RST then
       output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
-    elseif op[1] == Reserved.SYSWRITE then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
-    elseif op[1] == Reserved.SYSEXIT then
-      output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
@@ -119,11 +115,11 @@ local function compile_linux_x86_64_nasm(ir, outname)
     elseif op[1] == Reserved.SYSCALL3 then
       output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL4 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL5 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tpop r8\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL6 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.MEM then
       output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
     elseif op[1] == Reserved.MOD then
@@ -161,6 +157,14 @@ local function compile_linux_x86_64_nasm(ir, outname)
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush QWORD [rax]\n", op[2]))
     elseif op[1] == Reserved.ENDBIND then
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tmov [ret_stack], rax\n", op[2]))
+    elseif op[1] == Reserved.CAST_BOOL then
+      output:write("\t; cast_intrinsic bool\n")
+    elseif op[1] == Reserved.CAST_INT then
+      output:write("\t; cast_intrinsic int\n")
+    elseif op[1] == Reserved.CAST_STR then
+      output:write("\t; cast_intrinsic str\n")
+    elseif op[1] == Reserved.CAST_PTR then
+      output:write("\t; cast_intrinsic ptr\n")
     else
       parfast_assert(false, string.format(
         "\n\tOperand not recognized or shouldn't be reachable.", op[1]))
@@ -275,10 +279,6 @@ local function compile_linux_x86_64_fasm(ir, outname)
       output:write("\tpop rax\n\tpop rbx\n\tpop rcx\n\tpush rbx\n\tpush rax\n\tpush rcx\n")
     elseif op[1] == Reserved.RST then
       output:write("\tpop rax\n\tpop rbx\n\tmov [rax], rbx\n")
-    elseif op[1] == Reserved.SYSWRITE then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n")
-    elseif op[1] == Reserved.SYSEXIT then
-      output:write("\tmov rax, 60\n\tpop rdi\n\tsyscall\n")
     elseif op[1] == Reserved.RLD then
       output:write("\tpop rax\n\txor rbx, rbx\n\tmov rbx, [rax]\n\tpush rbx\n")
     elseif op[1] == Reserved.THEN then
@@ -298,11 +298,11 @@ local function compile_linux_x86_64_fasm(ir, outname)
     elseif op[1] == Reserved.SYSCALL3 then
       output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL4 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL5 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tpop r8\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.SYSCALL6 then
-      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop rcx\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
+      output:write("\tpop rax\n\tpop rdi\n\tpop rsi\n\tpop rdx\n\tpop r10\n\tpop r8\n\tpop r9\n\tsyscall\n\tpush rax\n")
     elseif op[1] == Reserved.MEM then
       output:write(string.format("\tmov rax, mbuf\n\tadd rax, %d\n\tpush rax\n", op[2]))
     elseif op[1] == Reserved.MOD then
@@ -340,6 +340,14 @@ local function compile_linux_x86_64_fasm(ir, outname)
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tpush QWORD [rax]\n", op[2]))
     elseif op[1] == Reserved.ENDBIND then
       output:write(string.format("\tmov rax, [ret_stack]\n\tadd rax, %d\n\tmov [ret_stack], rax\n", op[2]))
+    elseif op[1] == Reserved.CAST_BOOL then
+      output:write("; cast_intrinsic bool")
+    elseif op[1] == Reserved.CAST_INT then
+      output:write("; cast_intrinsic int")
+    elseif op[1] == Reserved.CAST_STR then
+      output:write("; cast_intrinsic str")
+    elseif op[1] == Reserved.CAST_PTR then
+      output:write("; cast_intrinsic ptr")
     else
       parfast_assert(false, string.format(
         "\n\tOperand not recognized or shouldn't be reachable.", op[1]))

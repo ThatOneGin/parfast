@@ -221,6 +221,53 @@ mem blocks create memory regions based on a global memory buffer called `mbuf` t
   end
 ```
 
+## casts
+
+`castptr`, `caststr`, `castbool` and `castint` are keywords to help the typechecker for example,
+in case you use a syscall that returns a pointer instead of an integer, you could use castptr
+if it returns a string, caststr and so one so far.
+
+Here's a use case of a cast:
+```c
+include "std.parfast"
+
+macro mmap_prot 3 endm
+macro mmap_flags 34 endm
+macro map_failed -1 endm
+
+// simple functions to allocate and free memory
+
+fn my_alloc int with
+  bind size in
+    // use the mmap syscall
+    0 -1 mmap_flags mmap_prot size 0 9 syscall6 castptr
+  end
+end
+
+fn my_free int ptr with
+  bind size ptr in
+    // use the munmap syscall
+    size ptr 11 syscall2 drop
+  end
+end
+
+fn main with
+  12 my_alloc // allocate 12 bytes
+
+  bind ptr in
+    // check if mmap returned an error
+    if ptr rld -1 != then
+      "Returned a pointer!\n" print
+      12 ptr my_free // free the pointer
+      0 exit
+    else
+      "Returned null.\n" print
+      1 exit
+    end
+  end
+end
+```
+
 ## syscalls
 
 Calls the kernel, the syscalls are labeled with a number in them, that shows the number of arguments they need for work, E.g. ```syscall4``` accepts four arguments, ```syscall0```, zero arguments. (but all of them need atleast one thing in the stack that will be pushed to the rax register)

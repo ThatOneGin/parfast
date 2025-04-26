@@ -179,6 +179,20 @@ local function check_unhandled_data(program)
       end
     elseif program[i][1] == Reserved.LOCAL_MEM then
       push(types.ptr)
+    elseif program[i][1] == Reserved.CAST_INT then
+      pop()
+      push(types.int)
+    elseif program[i][1] == Reserved.CAST_STR then
+      pop()
+      push(types.str)
+    elseif program[i][1] == Reserved.CAST_PTR then
+      pop()
+      push(types.ptr)
+    elseif program[i][1] == Reserved.CAST_BOOL then
+      pop()
+      push(types.bool)
+    elseif program[i][1] == Reserved.PUSHBIND then
+      push(types.ptr) -- should be a pointer
     end
     ::continue::
     i = i + 1

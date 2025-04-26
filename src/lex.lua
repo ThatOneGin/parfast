@@ -45,7 +45,11 @@ local strreserved = {
   ["arv"]      = Reserved.ARGV,
   ["fn"]       = Reserved.FN,
   ["asm"]      = Reserved.ASM,
-  ["bind"]     = Reserved.BIND
+  ["bind"]     = Reserved.BIND,
+  ["castptr"]  = Reserved.CAST_PTR,
+  ["caststr"]  = Reserved.CAST_STR,
+  ["castint"]  = Reserved.CAST_INT,
+  ["castbool"] = Reserved.CAST_BOOL
 }
 
 local function lexl(line)

@@ -51,5 +51,9 @@ Reserved = {
   ENDBIND   = enum(),
   IN        = enum(),
   PUSHBIND  = enum(),
-  WITH      = enum()
+  WITH      = enum(),
+  CAST_PTR  = enum(),
+  CAST_STR  = enum(),
+  CAST_INT  = enum(),
+  CAST_BOOL = enum()
 }
