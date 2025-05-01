@@ -46,7 +46,7 @@ function main()
   local flags = parse_args()
   if flags["-help"] then
     print_help()
-    os.exit(0)
+    return
   end
 
   parfast_assert(flags["-file"] ~= nil, " No input file provided.")
@@ -54,7 +54,7 @@ function main()
 
   if not input or input == nil then
     parfast_assert(false, string.format("Couldn't open input file: %s", errmsg))
-    os.exit(1)
+    return
   end
 
   local tokens = lexl(input:read("a"))
@@ -62,6 +62,13 @@ function main()
   local outname = remove_file_extension(flags["-file"])
   local asm_outname = (not flags["-S"] and not flags["-c"]) and os.tmpname() or outname
   local parsed_ir = get_references(ir)
+
+  if flags["-dump-ir"] then
+    for i, v in pairs(parsed_ir) do
+      io.write(string.format("%d: %s\n", i, concat_ir_op(v)))
+    end
+    return
+  end
 
   if not flags["-Wunused-data"] and not flags["-unsafe"] then
     check_unhandled_data(parsed_ir)

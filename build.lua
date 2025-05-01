@@ -26,6 +26,7 @@ command_build = {
   files = {
     "./src/utils.lua",
     "./src/opdef.lua",
+    "./src/dump.lua",
     "./src/lex.lua",
     "./src/parser.lua",
     "./src/codegen.lua",

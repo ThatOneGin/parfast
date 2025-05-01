@@ -1,6 +1,6 @@
-counter = 0
+counter = 1
 function enum(reset)
-  if reset == true then counter = 0 end
+  if reset == true then counter = 1 end
   local val = counter
   counter = counter + 1
   return val
