@@ -50,6 +50,6 @@ In linux, just run `./build.lua` and it will procude a file named `parfast` whic
 
 - [X] multi assembler support
 
-- [ ] stability
+- [ ] check stack inconsistency at stack tracker
 
 - [ ] self hosting (probably never XD)

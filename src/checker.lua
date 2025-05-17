@@ -61,11 +61,15 @@ local function check_unhandled_data(program)
       local a = pop()
       local b = pop()
       if a == types.ptr and b == types.int then
+        parfast_assert(program[i][1] == Reserved.ADD or program[i][1] == Reserved.SUB,
+          "Invalid arithmetic hands.")
         push(types.ptr)
       elseif a == types.int and b == types.ptr then
+        parfast_assert(program[i][1] == Reserved.ADD or program[i][1] == Reserved.SUB,
+          "Invalid arithmetic hands.")
         push(types.ptr)
       elseif a == types.str or b == types.str then
-        push(types.str)
+        parfast_assert(false, "Invalid operands to binary (str and str)")
       else
         push(types.int)
       end
