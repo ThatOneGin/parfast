@@ -1,0 +1,2 @@
+local parfastc = require("parfast.parfastc")
+parfastc.main()
