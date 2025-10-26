@@ -33,7 +33,7 @@ local keywords_ = {}
 do
   local k =
     [[
-      fn if
+      fn in
       else while
       end puts
       if end

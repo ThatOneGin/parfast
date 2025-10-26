@@ -1,13 +1,11 @@
 -- The parfast compiler
 
-local lex = require("parfast.lex")
-local parse = require("parfast.parser")
-
+local compiler = require("parfast.compiler")
 local parfastc = {}
 
 function parfastc.main()
-  local p = parse("main", arg[1] or "")
-  print(#p)
+  local c = compiler.new()
+  print(c:dostring(arg[1], "main"))
   return 0
 end
 
