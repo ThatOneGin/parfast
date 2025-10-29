@@ -11,7 +11,7 @@ function symtab:find(name)
     if self.outer ~= nil then
       return self.outer:find(name)
     else
-      util.abort(nil, "Unknown symbol '%s'.", name)
+      util.abort("Error", "Unknown symbol '%s'.", name)
     end
   end
   return self.symbols[name]
@@ -21,7 +21,7 @@ function symtab:set(name, value)
   if self.symbols[name] == nil then
     self.symbols[name] = value
   else
-    util.abort(nil, "Trying to redefine symbol '%s'.")
+    util.abort("Error", "Trying to redefine symbol '%s'.")
   end
 end
 

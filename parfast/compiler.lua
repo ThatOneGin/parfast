@@ -63,6 +63,17 @@ function compiler:value(v)
   return "0"
 end
 
+function compiler:enter()
+  local parent = self.symtab
+  self.symtab = symtab.new(parent)
+end
+
+function compiler:leave()
+  if self.symtab.outer ~= nil then
+    self.symtab = self.symtab.outer
+  end
+end
+
 local Op = {}
 
 Op["ast.Op.Push"] = function (c, i)
@@ -91,6 +102,8 @@ function compiler:stat(s)
     Op[s.tt_](self, s)
   else
     if s.tt_ == "ast.Stat.Bind" then
+      local oldrbp = self.rbp
+      self:enter()
       self:outf("/* begin bind */")
       for i = 1, #s.vars do
         self.rbp = self.rbp + 8
@@ -102,8 +115,10 @@ function compiler:stat(s)
         self:stat(s.body[i])
       end
       self:outf("/* end bind */")
+      self:leave()
+      self.rbp = oldrbp
     else -- TODO: local memory, functions and global memory.
-      util.abort(nil, "Unknown stat '%s'", tostring(s))
+      util.abort("Error", "Unknown stat '%s'", tostring(s))
     end
   end
 end
@@ -136,12 +151,17 @@ end
 function compiler:dostring(chunk, name)
   local ast = parse(name, chunk)
   for i=1, #ast do
+    print(tostring(ast[i]))
     if ast[i].tt_ == "ast.Stat.Fn" then
+      self:enter()
       self:func(ast[i])
+      self:leave()
+      self.symtab:set(ast[i].name, tab.Entry.Fn())
     else
-      util.abort(nil, "Unknown statement '%s'", ast[i])
+      util.abort("Error", "Unknown statement '%s'", ast[i])
     end
   end
+  self:rodata()
   return concat(self.out, "\n")
 end
 
