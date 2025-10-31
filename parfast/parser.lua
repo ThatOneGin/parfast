@@ -225,8 +225,9 @@ function parser:toplevel()
     return ast.Stat.Fn(loc, name, body, types)
   elseif self:match("mem") then
     local loc = self:next().loc
+    local name = self:expect("identifier", "Expected region name").value
     local body = self:subsetblock("end")
-    return ast.Stat.Mem(loc, body)
+    return ast.Stat.Mem(loc, name, body)
   else
     self:syntaxerror("Expected function or memory allocation at top-level")
   end

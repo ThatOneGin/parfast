@@ -31,7 +31,7 @@ union.define(ast, "ast", "Stat", {
   If = {"loc", "cond", "body"},
   While = {"loc", "cond", "body"},
   Bind = {"loc", "vars", "body"},
-  Mem = {"loc", "body"} -- body will be evaluated at compile-time (after type-checking)
+  Mem = {"loc", "name", "body"} -- body will be evaluated at compile-time (after type-checking)
 })
 
 union.define(ast, "ast", "Types", {
