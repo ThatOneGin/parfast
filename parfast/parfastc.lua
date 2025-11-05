@@ -1,11 +1,38 @@
 -- The parfast compiler
 
 local compiler = require("parfast.compiler")
+local util = require("parfast.util")
 local parfastc = {}
 
-function parfastc.main()
+local function getsource(filename)
+  local f, errmsg = io.open(filename, "r")
+  if f == nil or errmsg ~= nil then
+    util.abort("Error", "Couldn't open file: %s: ", filename, errmsg)
+    os.exit(1)
+  end
+  return f:read("a")
+end
+
+local function writetofile(chunk, filename)
+  local f, errmsg = io.open(filename, "w")
+  if f == nil or errmsg ~= nil then
+    util.abort("Error", "Couldn't open file: %s: ", filename, errmsg)
+    os.exit(1)
+  end
+  return f:write(chunk)
+end
+
+local function compile(filename)
+  local src = getsource(filename)
   local c = compiler.new()
-  print(c:dostring(arg[1], "main"))
+  local out = c:dostring(src)
+  writetofile(out, "out.s")
+end
+
+function parfastc.main()
+  for i = 1, #arg do
+    compile(arg[i])
+  end
   return 0
 end
 

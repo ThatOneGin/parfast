@@ -112,8 +112,40 @@ Op["ast.Op.Swap"] = function (c, i)
   c:outf("\tcall parfast.core.swap")
 end
 
-Op["ast.Op.Drop"] = function (c, i)
+Op["ast.Op.Drop"] = function (c)
   c:outf("\tcall parfast.core.pop")
+end
+
+Op["ast.Op.Add"] = function (c)
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tmovq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\taddq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.push")
+end
+
+Op["ast.Op.Sub"] = function (c)
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tmovq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tsubq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.push")
+end
+
+Op["ast.Op.Mul"] = function (c)
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tmovq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\timulq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.push")
+end
+
+Op["ast.Op.Div"] = function (c)
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tmovq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.pop")
+  c:outf("\tidivq %%rax, %%rdi")
+  c:outf("\tcall parfast.core.push")
 end
 
 function compiler:stat(s)
