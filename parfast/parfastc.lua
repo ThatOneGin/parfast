@@ -2,7 +2,10 @@
 
 local compiler = require("parfast.compiler")
 local util = require("parfast.util")
+local intrinsics = require("parfast.intrinsics")
 local parfastc = {}
+
+local outputs = {}
 
 local function getsource(filename)
   local f, errmsg = io.open(filename, "r")
@@ -26,13 +29,15 @@ local function compile(filename)
   local src = getsource(filename)
   local c = compiler.new()
   local out = c:dostring(src)
-  writetofile(out, "out.s")
+  outputs[#outputs+1] = out
 end
 
 function parfastc.main()
+  outputs[#outputs+1] = intrinsics
   for i = 1, #arg do
     compile(arg[i])
   end
+  writetofile(table.concat(outputs, "\n"), "out.s")
   return 0
 end
 
