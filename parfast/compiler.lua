@@ -75,6 +75,9 @@ function compiler:value(v)
     elseif s.tt_ == "tab.Entry.Bind" then
       self:outf("\tmovq -%d(%%rbp), %%rax", s.offset)
       return "%rax"
+    elseif s.tt_ == "tab.Entry.Fn" then
+      self:outf("\tcall %s", v.symbol)
+      return nil
     else
       return v.symbol
     end
@@ -96,8 +99,11 @@ end
 local Op = {}
 
 Op["ast.Op.Push"] = function (c, i)
-  c:outf("\tmovq %s, %%rdi", c:value(i.value))
-  c:outf("\tcall parfast.core.push")
+  local val = c:value(i.value)
+  if val ~= nil then
+    c:outf("\tmovq %s, %%rdi", val)
+    c:outf("\tcall parfast.core.push")
+  end
 end
 
 Op["ast.Op.Dup"] = function (c, i)
@@ -175,6 +181,7 @@ function compiler:stat(s)
 end
 
 function compiler:func(f)
+  self:outf("\t.globl %s", f.name)
   self:outf("%s:", f.name)
   self:outf("\tpushq %%rbp")
   self:outf("\tmovq %%rsp, %%rbp")

@@ -17,6 +17,7 @@ function parser:constructor(lexer)
   self.previous = nil
   self.current = nil
   self.nestlevel = 0
+  self.macros = {}
 
   self:next()
 end
@@ -103,22 +104,27 @@ local ops = {
 }
 
 -- an atom is an instrinsic (e.g. dup rot swap)
+-- the first value is a boolean that if true, means
+-- that it found a macro with the symbol that is returned
 function parser:atom()
   local loc = self.current.loc
   if self:match("number") then
     local v = self:value()
-    return ast.Op.Push(loc, v)
+    return false, ast.Op.Push(loc, v)
   elseif self:match("string") then
     local v = self:value()
-    return ast.Op.Push(loc, v)
+    return false, ast.Op.Push(loc, v)
   elseif self:match("identifier") then
     local v = self:value()
-    return ast.Op.Push(loc, v)
+    if self.macros[v.symbol] then
+      return true, v.symbol
+    end
+    return false, ast.Op.Push(loc, v)
   else -- try operators
     local tk = self:next()
     local t = tk.type
     if ops[t] ~= nil then
-      return ops[t](tk.loc)
+      return false, ops[t](tk.loc)
     else
       self:syntaxerror("Unknown operator %s", t)
     end
@@ -131,7 +137,16 @@ function parser:subsetblock(t)
   local i = 1
   self:enter()
   while not self:match(t) and not self:match("EOF") do
-    block[i] = self:atom()
+    local expand, a = self:atom()
+    if not expand then
+      block[i] = a
+    else
+      local macro = self.macros[a]
+      for j = i, #macro do
+        block[j] = macro[j]
+      end
+      i = i + #macro
+    end
     i = i + 1
   end
   self:leave()
@@ -145,7 +160,16 @@ function parser:block(t)
   local i = 1
   self:enter()
   while not self:match(t) and not self:match("EOF") do
-    block[i] = self:stat()
+    local expand, s = self:stat()
+    if not expand then
+      block[i] = s
+    else
+      local macro = self.macros[s]
+      for j = i, #macro do
+        block[j] = macro[j]
+      end
+      i = i + #macro
+    end
     i = i + 1
   end
   self:leave()
@@ -169,18 +193,18 @@ function parser:stat()
     local loc = self:next().loc
     local cond = self:block("then")
     local body = self:block("end")
-    return ast.Stat.If(loc, cond, body)
+    return false, ast.Stat.If(loc, cond, body)
   elseif self:match("while") then -- while <cond> do <body> end
     local loc = self:next().loc
     local cond = self:block("do")
     local body = self:block("end")
-    return ast.Stat.While(loc, cond, body)
+    return false, ast.Stat.While(loc, cond, body)
   elseif self:match("bind") then -- bind <vars> in <body> end
     local loc = self:next().loc
     local vars = self:vars()
     local _ = self:expect("in")
     local body = self:block("end")
-    return ast.Stat.Bind(loc, vars, body)
+    return false, ast.Stat.Bind(loc, vars, body)
   else
     return self:atom()
   end
@@ -228,6 +252,14 @@ function parser:toplevel()
     local name = self:expect("identifier", "Expected region name").value
     local body = self:subsetblock("end")
     return ast.Stat.Mem(loc, name, body)
+  elseif self:match("macro") then
+    local _ = self:next()
+    local name = self:expect("identifier", "Expected macro name").value
+    local body = self:block("endm")
+    if self.macros[name] == nil then
+      self.macros[name] = body
+    end
+    return nil
   else
     self:syntaxerror("Expected function or memory allocation at top-level")
   end
@@ -239,7 +271,10 @@ return function (name, source)
   local p = parser.new(l)
   local program = {}
   while not p:match("EOF") do
-    program[#program+1] = p:toplevel()
+    local t = p:toplevel()
+    if t ~= nil then
+      program[#program+1] = t
+    end
   end
   return program
 end
