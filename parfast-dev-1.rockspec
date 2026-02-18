@@ -15,9 +15,16 @@ description = {
 build = {
    type = "builtin",
    modules = {
-      parfastc = "parfast/parfastc.lua",
-      util = "parfast/util.lua",
-      union = "parfast/union.lua"
+      ["parfast.ast"] = "parfast/ast.lua",
+      ["parfast.compiler"] = "parfast/compiler.lua",
+      ["parfast.comptime"] = "parfast/comptime.lua",
+      ["parfast.header"] = "parfast/header.lua",
+      ["parfast.lex"] = "parfast/lex.lua",
+      ["parfast.parfastc"] = "parfast/parfastc.lua",
+      ["parfast.parser"] = "parfast/parser.lua",
+      ["parfast.symtab"] = "parfast/symtab.lua",
+      ["parfast.union"] = "parfast/union.lua",
+      ["parfast.util"] = "parfast/util.lua"
    },
    copy_directories = {
       "tests"

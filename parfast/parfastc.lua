@@ -2,7 +2,7 @@
 
 local compiler = require("parfast.compiler")
 local util = require("parfast.util")
-local intrinsics = require("parfast.intrinsics")
+local header = require("parfast.header")
 local parfastc = {}
 
 local outputs = {}
@@ -32,12 +32,20 @@ local function compile(filename)
   outputs[#outputs+1] = out
 end
 
+local function delete_file_ext(name)
+  return name:match("(.-)%..-")
+end
+
 function parfastc.main()
-  outputs[#outputs+1] = intrinsics
+  outputs[#outputs+1] = header
   for i = 1, #arg do
     compile(arg[i])
   end
-  writetofile(table.concat(outputs, "\n"), "out.s")
+  if #arg == 1 then
+    writetofile(table.concat(outputs, "\n"), delete_file_ext(arg[1]) .. ".s")
+  else
+    writetofile(table.concat(outputs, "\n"), "out.s")
+  end
   return 0
 end
 

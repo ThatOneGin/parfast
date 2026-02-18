@@ -22,7 +22,6 @@ local compiler = util.class()
 function compiler:constructor()
   self.data = {}
   self.bss = {}
-  self.outname = "a.out"
   self.out = {}
   self.symtab = symtab.new(nil)
   self.rbp = 0
@@ -59,24 +58,23 @@ end
 
 function compiler:value(v)
   if v.tt_ == "ast.Value.Number" then
-    return "$" .. tostring(v.value)
+    return tostring(v.value)
   elseif v.tt_ == "ast.Value.String" then
     return self:pushk(v.value, "string")
   elseif v.tt_ == "ast.Value.Name" then
     local s = self.symtab:find(v.symbol)
     if s.tt_ == "tab.Entry.Mem" then
       if s.global then
-        self:outf("\tmovq $%s, %%rax", v.symbol)
-        return "%rax"
+        self:outf("\tmov rax, %s", v.symbol)
+        return "rax"
       else
-        self:outf("\tmovq -%d(%%rbp), %%rax", s.offset)
-        return "%rax"
+        return string.format("[rbp - %d]", s.offset)
       end
     elseif s.tt_ == "tab.Entry.Bind" then
-      self:outf("\tmovq -%d(%%rbp), %%rax", s.offset)
-      return "%rax"
+      self:outf("\tmov rax, [rbp - %d]", s.offset)
+      return "rax"
     elseif s.tt_ == "tab.Entry.Fn" then
-      self:outf("\tcall %s", v.symbol)
+      self:outf("\tcall parfast.%s", v.symbol)
       return nil
     else
       return v.symbol
@@ -101,57 +99,49 @@ local Op = {}
 Op["ast.Op.Push"] = function (c, i)
   local val = c:value(i.value)
   if val ~= nil then
-    c:outf("\tmovq %s, %%rdi", val)
-    c:outf("\tcall parfast.core.push")
+    c:outf("; push")
+    c:outf("\tparfast.core.push %s", val)
   end
 end
 
 Op["ast.Op.Dup"] = function (c, i)
+  c:outf("; dup")
   c:outf("\tcall parfast.core.dup")
 end
 
 Op["ast.Op.Rot"] = function (c, i)
+  c:outf("; rot")
   c:outf("\tcall parfast.core.rot")
 end
 
 Op["ast.Op.Swap"] = function (c, i)
+  c:outf("; swap")
   c:outf("\tcall parfast.core.swap")
 end
 
 Op["ast.Op.Drop"] = function (c)
-  c:outf("\tcall parfast.core.pop")
+  c:outf("; drop")
+  c:outf("\tparfast.core.drop rax")
 end
 
 Op["ast.Op.Add"] = function (c)
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tmovq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\taddq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.push")
+  c:outf("; add")
+  c:outf("\tcall parfast.core.add")
 end
 
 Op["ast.Op.Sub"] = function (c)
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tmovq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tsubq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.push")
+  c:outf("; sub")
+  c:outf("\tcall parfast.core.sub")
 end
 
 Op["ast.Op.Mul"] = function (c)
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tmovq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\timulq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.push")
+  c:outf("; mul")
+  c:outf("\tcall parfast.core.mul")
 end
 
 Op["ast.Op.Div"] = function (c)
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tmovq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.pop")
-  c:outf("\tidivq %%rax, %%rdi")
-  c:outf("\tcall parfast.core.push")
+  c:outf("; div")
+  c:outf("\tcall parfast.core.div")
 end
 
 function compiler:stat(s)
@@ -161,17 +151,18 @@ function compiler:stat(s)
     if s.tt_ == "ast.Stat.Bind" then
       local oldrbp = self.rbp
       self:enter()
-      self:outf("/* begin bind */")
+      self:outf("; begin bind")
       for i = 1, #s.vars do
         self.rbp = self.rbp + 8
-        self:outf("\tcall parfast.core.pop")
-        self:outf("\tmovq %%rax, -%d(%%rbp)", self.rbp)
+        self:outf("\tsub r15, 8")
+        self:outf("\tmov rax, [r15]")
+        self:outf("\tmov [rbp - %d], rax", self.rbp)
         self.symtab:set(s.vars[i], tab.Entry.Bind(self.rbp))
       end
       for i = 1, #s.body do
         self:stat(s.body[i])
       end
-      self:outf("/* end bind */")
+      self:outf("; end bind")
       self:leave()
       self.rbp = oldrbp
     else -- TODO: local memory and functions.
@@ -180,15 +171,44 @@ function compiler:stat(s)
   end
 end
 
+local function count_vars(s)
+  if s.tt_ == "ast.Stat.Bind" then
+    local nvars = #s.vars
+    local body_nvars;
+    for i = 1, #s.body do
+      body_nvars = count_vars(s.body[i])
+      if body_nvars >= nvars then
+        return body_nvars
+      end
+    end
+    return nvars
+  end
+  return 0
+end
+
 function compiler:func(f)
-  self:outf("\t.globl %s", f.name)
-  self:outf("%s:", f.name)
-  self:outf("\tpushq %%rbp")
-  self:outf("\tmovq %%rsp, %%rbp")
+  self:outf("parfast.%s: ; user function '%s'", f.name, f.name)
+  self:outf("\tpush rbp")
+  self:outf("\tmov rbp, rsp")
+  self:outf("\tmov r15, parfast.stack")
+  local nvars = 0
+  local body_nvars
+  for i = 1, #f.body do
+    body_nvars = count_vars(f.body[i])
+    if body_nvars >= nvars then
+      nvars = body_nvars
+    end
+  end
+  if nvars > 0 then
+    -- allocate the stack space for the bindings
+    self:outf("\tsub rbp, %d", ((nvars * 8) + 15) & ~15)
+  end
   for i = 1, #f.body do
     self:stat(f.body[i])
   end
-  self:outf("\tpopq %%rbp")
+  if nvars > 0 then self:outf("\tleave")
+  else self:outf("\tpop rbp")
+  end
   self:outf("\tret")
 end
 
@@ -196,12 +216,12 @@ function compiler:section_rodata()
   if #self.data == 0 then
     return
   end
-  self:outf(".section .rodata")
+  self:outf("; section rodata")
   for i = 1, #self.data do
     local c = self.data[i]
     if c.type == "string" then
       self:outf(".LC%d:", i)
-      self:outf("\t.string %q", c.value)
+      self:outf("\tdb %q", c.value)
     end
   end
 end
@@ -210,10 +230,10 @@ function compiler:section_bss()
   if #self.bss == 0 then
     return
   end
-  self:outf(".section .bss")
+  self:outf("; section bss")
   for i=1, #self.bss do
     local c = self.bss[i]
-    self:outf("%s:\t.zero %d", c.name, c.size)
+    self:outf("%s:\trb %d", c.name, c.size)
   end
 end
 
