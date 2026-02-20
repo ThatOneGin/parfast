@@ -144,6 +144,33 @@ Op["ast.Op.Div"] = function (c)
   c:outf("\tcall parfast.core.div")
 end
 
+Op["ast.Op.Load8"] = function (c)
+  c:outf("; load (64)")
+  c:outf("\tparfast.core.drop rbx")
+  c:outf("\tmov al, [rbx]")
+  c:outf("\tparfast.core.push rax")
+end
+
+Op["ast.Op.Store8"] = function (c)
+  c:outf("; store (64)")
+  c:outf("\tparfast.core.drop rbx")
+  c:outf("\tparfast.core.drop rax")
+  c:outf("\tmov [rax], bl")
+end
+
+Op["ast.Op.Load64"] = function (c)
+  c:outf("; load (64)")
+  c:outf("\tparfast.core.drop rax") -- pointer
+  c:outf("\tparfast.core.push [rax]")
+end
+
+Op["ast.Op.Store64"] = function (c)
+  c:outf("; store (64)")
+  c:outf("\tparfast.core.drop rbx") -- value
+  c:outf("\tparfast.core.drop rax") -- pointer
+  c:outf("\tmov [rax], rbx")
+end
+
 function compiler:stat(s)
   if Op[s.tt_] ~= nil then
     Op[s.tt_](self, s)
